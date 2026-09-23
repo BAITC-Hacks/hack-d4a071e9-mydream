@@ -41,7 +41,16 @@ ROLE_COLUMNS = [
     "in_deg", "out_deg", "in_kzt", "out_kzt", "in_tx", "out_tx",
     "pagerank", "betweenness", "pass_through", "depth", "is_seed",
     "truncated_by_depth", "active_days", "data_quality",
+    "continuation_rate", "continuation_support", "boundary_label",
 ]
+# Depth-4 nodes without outgoing edges are compared with depth 1-3 nodes whose
+# outgoing transfers the crawl did trace. The share of those reference nodes
+# that sent money onward, per band of incoming operations, estimates whether
+# the crawl cut the chain or the money really stopped.
+CONTINUATION_BANDS = [(1, 1, "1 операция"), (2, 2, "2 операции"), (3, 5, "3–5 операций"), (6, None, "6+ операций")]
+CONTINUATION_MIN_SUPPORT = 30
+CONTINUATION_TERMINAL_MAX = 1 / 3
+CONTINUATION_CONTINUES_MIN = 2 / 3
 ROLE_CSV_COLUMNS = ["gid", "role", "role_score", "cluster_id", "priority_score", "evidence"]
 CLUSTER_COLUMNS = ["cluster_id", "n_nodes", "n_seed", "sum_kzt_internal", "top_gids", "hypothesis"]
 TOP_COLUMNS = ["rank", "gid", "role", "priority_score", "why"]
@@ -172,10 +181,52 @@ def node_features(nodes: pd.DataFrame, tx: pd.DataFrame, graph: nx.DiGraph) -> p
     return features
 
 
+def continuation_band(in_tx: int) -> str:
+    for low, high, label in CONTINUATION_BANDS:
+        if in_tx >= low and (high is None or in_tx <= high):
+            return label
+    return CONTINUATION_BANDS[0][2]
+
+
+def continuation_reference(features: pd.DataFrame) -> dict[str, dict]:
+    """Observed onward-transfer share of depth 1-3 recipients, per incoming band."""
+    reference = features[features.depth.between(1, 3) & (features.in_deg > 0)]
+    bands = reference.in_tx.astype(int).map(continuation_band)
+    table = {}
+    for _, _, label in CONTINUATION_BANDS:
+        group = reference[bands == label]
+        table[label] = {
+            "band": label, "support": int(len(group)),
+            "rate": round(float((group.out_deg > 0).mean()), 4) if len(group) else None,
+        }
+    return table
+
+
+def boundary_assessment(features: pd.DataFrame, reference: dict[str, dict]) -> pd.DataFrame:
+    """Label each depth-4 node without outgoing edges by its reference band."""
+    rate = pd.Series([None] * len(features), index=features.index, dtype=object)
+    support = pd.Series([None] * len(features), index=features.index, dtype=object)
+    label = pd.Series([None] * len(features), index=features.index, dtype=object)
+    for index in features.index[features.truncated_by_depth]:
+        cell = reference[continuation_band(int(features.at[index, "in_tx"]))]
+        rate[index], support[index] = cell["rate"], cell["support"]
+        if cell["rate"] is None or cell["support"] < CONTINUATION_MIN_SUPPORT:
+            label[index] = "uncertain"
+        elif cell["rate"] <= CONTINUATION_TERMINAL_MAX:
+            label[index] = "likely_terminal"
+        elif cell["rate"] >= CONTINUATION_CONTINUES_MIN:
+            label[index] = "likely_continues"
+        else:
+            label[index] = "uncertain"
+    return pd.DataFrame({"continuation_rate": rate, "continuation_support": support, "boundary_label": label})
+
+
 def role_hypothesis(row: pd.Series, bridge_cutoff: float, bridge_rank: float) -> tuple[str, float]:
     """Mutually exclusive, ordered graph-pattern rules."""
     in_deg, out_deg = int(row.in_deg), int(row.out_deg)
     if row.truncated_by_depth:
+        if row.boundary_label == "likely_terminal":
+            return "terminal", round(min(0.75, 0.45 + 0.4 * (1 - float(row.continuation_rate))), 6)
         return "peripheral", 0.4
     if in_deg == 0 and out_deg == 0:
         return "peripheral", 0.75
@@ -206,7 +257,14 @@ def evidence_text(row: pd.Series) -> str:
         "peripheral": "пороги других ролей не выполнены",
     }[row.role]
     if row.truncated_by_depth:
-        rule = "глубина 4; продолжение вне обхода неизвестно"
+        verdict = {
+            "likely_terminal": "вероятно конечный", "likely_continues": "вероятно продолжение",
+        }.get(row.boundary_label, "продолжение неясно")
+        if row.continuation_rate is None or row.continuation_support < CONTINUATION_MIN_SUPPORT:
+            rule = f"глубина 4; мало сравнимых узлов колен 1–3 ({row.continuation_support}); {verdict}"
+        else:
+            rule = (f"глубина 4; {continuation_band(int(row.in_tx))}: дальше шли "
+                    f"{100 * float(row.continuation_rate):.0f}% из {row.continuation_support} узлов колен 1–3; {verdict}")
     elif row.in_deg == 0 and row.out_deg == 0:
         rule = "наблюдаемых связей нет"
     facts = (
@@ -257,6 +315,8 @@ def analyze(
     validate_data(nodes, edges, tx)
     graph = build_graph(nodes, edges)
     roles = node_features(nodes, tx, graph)
+    continuation = continuation_reference(roles)
+    roles = pd.concat([roles, boundary_assessment(roles, continuation)], axis=1)
     bridge_rank = roles.betweenness.rank(pct=True)
     eligible = roles.loc[(roles.in_deg >= 2) & (roles.out_deg >= 2) & (roles.betweenness > 0), "betweenness"]
     bridge_cutoff = float(eligible.quantile(0.9)) if not eligible.empty else float("inf")
@@ -346,6 +406,11 @@ def analyze(
     network_nodes["priority_factors"] = [factors_by_gid[value] for value in network_nodes.gid]
     network_nodes["optional"] = [optional_by_gid[int(value)] for value in network_nodes.gid]
     network_nodes["gid"] = network_nodes.gid.astype(str)
+    for column in ("continuation_rate", "continuation_support", "boundary_label"):
+        network_nodes[column] = pd.Series(
+            [None if value is None or pd.isna(value) else value for value in network_nodes[column]],
+            index=network_nodes.index, dtype=object,
+        )
     network_edges = edges[["src", "dst", "sum_kzt", "n_tx", "depth"]].copy()
     network_edges["src"] = network_edges.src.astype(str)
     network_edges["dst"] = network_edges.dst.astype(str)
@@ -362,6 +427,16 @@ def analyze(
             "n_transactions": int(len(tx)), "n_seeds": int(nodes.is_seed.sum()),
             "n_clusters": int(len(clusters)), "total_kzt": float(edges.sum_kzt.sum()),
             "n_depth4_censored": int(roles.truncated_by_depth.sum()),
+            "boundary_labels": {
+                label: int((roles.boundary_label == label).sum())
+                for label in ("likely_terminal", "uncertain", "likely_continues")
+            },
+            "continuation_reference": list(continuation.values()),
+            "continuation_thresholds": {
+                "terminal_max": round(CONTINUATION_TERMINAL_MAX, 4),
+                "continues_min": round(CONTINUATION_CONTINUES_MIN, 4),
+                "min_support": CONTINUATION_MIN_SUPPORT,
+            },
             "n_orphan_seeds": int(((roles.in_deg + roles.out_deg == 0) & roles.is_seed).sum()),
             "ranking_method": "Weighted interpretable graph metrics with observation-quality discount",
             "cluster_method": "Louvain on log-weighted undirected projection",

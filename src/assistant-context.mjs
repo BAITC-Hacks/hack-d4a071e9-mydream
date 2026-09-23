@@ -4,7 +4,9 @@ const ROLES = new Set(['consolidator', 'transit', 'distributor', 'terminal', 'co
 const NODE_NUMBERS = [
   'role_score', 'cluster_id', 'priority_score', 'in_deg', 'out_deg', 'in_kzt', 'out_kzt',
   'in_tx', 'out_tx', 'pagerank', 'betweenness', 'pass_through', 'depth', 'active_days', 'data_quality',
+  'continuation_rate', 'continuation_support',
 ];
+const BOUNDARY_LABELS = new Set(['likely_terminal', 'uncertain', 'likely_continues']);
 const FACTORS = ['role', 'volume', 'degree', 'bridge', 'activity', 'data_quality_penalty'];
 const OPTIONAL_NUMBERS = ['transit_2d_count', 'burst_days', 'synchronous_payers_days', 'splitting_groups', 'route_count', 'cycle_count'];
 const validGid = (value) => typeof value === 'string' && /^\d{15,19}$/.test(value);
@@ -22,6 +24,7 @@ function copyNumbers(source, keys) {
 function graphNode(node) {
   const result = { gid: node.gid, ...copyNumbers(node, NODE_NUMBERS) };
   if (ROLES.has(node.role)) result.role = node.role;
+  if (BOUNDARY_LABELS.has(node.boundary_label)) result.boundary_label = node.boundary_label;
   if (typeof node.evidence === 'string') result.evidence = node.evidence.slice(0, 400);
   for (const key of ['is_seed', 'truncated_by_depth']) {
     if (typeof node[key] === 'boolean') result[key] = node[key];

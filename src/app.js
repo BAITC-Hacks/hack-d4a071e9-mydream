@@ -40,7 +40,8 @@ const NODE_FACTS = [
   ['active_days', 'Дней активности', 'integer'], ['pass_through', 'Исходящий / входящий поток', 'number'],
   ['pagerank', 'PageRank', 'number'], ['betweenness', 'Посредничество', 'number'],
   ['depth', 'Колено от исходного узла', 'integer'], ['is_seed', 'Исходный узел', 'boolean'],
-  ['truncated_by_depth', 'Граница выгрузки', 'boolean'], ['data_quality', 'Коэффициент полноты', 'number'],
+  ['truncated_by_depth', 'Граница выгрузки', 'boolean'], ['continuation_rate', 'Доля продолжения у похожих узлов колен 1–3', 'percent'],
+  ['data_quality', 'Коэффициент полноты', 'number'],
 ];
 function nodeFacts(node) {
   return NODE_FACTS.filter(([key]) => Object.hasOwn(node, key))
@@ -50,6 +51,7 @@ function factValue(fact) {
   if (fact.value === null || fact.value === undefined) return '—';
   if (fact.format === 'boolean') return fact.value ? 'Да' : 'Нет';
   if (fact.format === 'money') return kzt(fact.value);
+  if (fact.format === 'percent') return percent(fact.value);
   if (fact.format === 'integer') return fmt(fact.value);
   return String(fact.value);
 }
@@ -297,6 +299,19 @@ function renderNodeFacts(node) {
   return section;
 }
 
+const BOUNDARY_VERDICT = {
+  likely_terminal: 'скорее всего деньги здесь остались',
+  likely_continues: 'скорее всего цепочка продолжается за границей выгрузки',
+  uncertain: 'продолжение цепочки неясно',
+};
+function boundaryText(node) {
+  const base = 'Граница 4-го колена: исходящие за пределами обхода неизвестны.';
+  if (!node.boundary_label) return base;
+  const verdict = BOUNDARY_VERDICT[node.boundary_label] || BOUNDARY_VERDICT.uncertain;
+  if (node.continuation_rate === null || node.continuation_rate === undefined) return `${base} Сравнимых узлов колен 1–3 мало, ${verdict}.`;
+  return `${base} Среди ${fmt(node.continuation_support)} узлов колен 1–3 с таким же числом входящих операций дальше отправляли ${percent(node.continuation_rate)}, поэтому ${verdict}.`;
+}
+
 function renderNodeInsights(node) {
   const section = element('section', 'detail-section optional-node');
   section.append(element('h3', '', 'АВТОКАРТОЧКА И ДОПОЛНИТЕЛЬНЫЕ СИГНАЛЫ'));
@@ -304,7 +319,7 @@ function renderNodeInsights(node) {
   const signal = node.optional;
   if (!signal) { section.append(element('p', '', 'Дополнительные сигналы появятся после пересчёта.')); return section; }
   const observation = signal.observation === 'depth_limit'
-    ? 'Граница 4-го колена: исходящие за пределами обхода неизвестны.'
+    ? boundaryText(node)
     : signal.observation === 'observed_terminal'
       ? 'Наблюдаемый конечный получатель: исходящих в выгрузке нет; вне периода и банка они неизвестны.'
       : 'Связи оценены в пределах выгрузки.';
