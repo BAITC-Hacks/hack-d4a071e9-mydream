@@ -4,3 +4,6 @@ __pycache__/
 output/*.parquet
 .pytest_cache/
 starter/out/
+portable/
+dist/
+.cache/

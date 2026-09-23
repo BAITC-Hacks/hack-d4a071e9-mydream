@@ -26,6 +26,21 @@ streamlit run app/streamlit_app.py           # экран просмотра: п
 
 Зависимости: pandas, pyarrow, networkx, numpy, streamlit, pyvis. Всё локально, без GPU и внешних API. Схема сети работает офлайн (vis.js встроен в HTML).
 
+## Запуск без установки (офлайн, запасной вариант)
+
+Если на ноутбуке для демо нет Python или интернета. Архивы содержат проект и свой Python 3.11 со всеми библиотеками ([python-build-standalone](https://github.com/astral-sh/python-build-standalone)); в систему ничего не ставится, работает с флешки.
+
+| Платформа | Архив | Запуск |
+|---|---|---|
+| Windows x64 | `moneygraph-win-x64.zip` (≈150 МБ) | распаковать в короткий путь, например `C:\mg`, затем `run_offline.bat run` |
+| Linux x64 | `moneygraph-linux-x64.tar.gz` (≈170 МБ) | `tar -xzf moneygraph-linux-x64.tar.gz && cd moneygraph && ./run_offline.sh run` |
+
+Команды те же для обоих: `run`, `explain <gid>`, `check`, `test`, `app` (Streamlit, открыть http://localhost:8501).
+
+- Windows: распаковывать в короткий путь. Самый длинный путь внутри архива — 158 символов, а лимит Windows — 260; глубокая папка в OneDrive может его превысить.
+- Антивирус или SmartScreen может спросить разрешение для `python.exe` — это обычный CPython из python-build-standalone, не наш бинарь.
+- Архивы в git не хранятся (`portable/`, `dist/` в `.gitignore`). Пересобрать на Linux с интернетом: `bash tools/build_portable.sh` (≈3 мин). Скрипт сам прогоняет пайплайн и тесты на Linux-сборке и проверяет полноту зависимостей Windows-сборки (`tools/check_win_deps.py`).
+
 ## Что на выходе
 
 | Файл | Содержание |
@@ -98,6 +113,7 @@ app/             streamlit_app.py — экран просмотра
 tests/           test_outputs.py — must-have M2, M4, M5
 data/            parquet от организаторов
 output/          результат прогона
+tools/           build_portable.sh — сборка офлайн-архивов; check_win_deps.py
 starter/         стартовый код организаторов (не используется, оставлен для сравнения)
 DESIGN.md        проектный документ: требования, архитектура, компромиссы, план
 ```
