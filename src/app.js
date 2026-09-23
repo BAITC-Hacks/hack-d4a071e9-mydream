@@ -10,7 +10,7 @@ const ROLE = {
 const formatInteger = new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 0 });
 const formatOne = new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 1 });
 const $ = (id) => document.getElementById(id);
-const state = { data: null, byId: new Map(), incoming: new Map(), outgoing: new Map(), detailCache: new Map(), detailPending: new Map(), dataVersion: 0, selectedId: null, clusterId: null, view: 'overview', positions: [], clusterFlows: [], busy: false };
+const state = { data: null, byId: new Map(), incoming: new Map(), outgoing: new Map(), detailCache: new Map(), detailPending: new Map(), dataVersion: 0, selectedId: null, clusterId: null, view: 'overview', positions: [], clusterFlows: [], busy: false, assistantBusy: false, assistantConfigured: null };
 
 function gid(value) { return String(value ?? '').trim(); }
 function finite(value) { const number = Number(value); return Number.isFinite(number) ? number : 0; }
@@ -26,72 +26,6 @@ function kzt(value) { return `${fmt(value)} ₸`; }
 function percent(value) { return `${formatOne.format(finite(value) * 100)}%`; }
 function roleOf(value) { return ROLE[value] || { label: 'Роль для проверки', short: String(value || '—'), color: '#91a2b1' }; }
 function element(tag, className, text) { const node = document.createElement(tag); if (className) node.className = className; if (text !== undefined) node.textContent = String(text); return node; }
-
-function answerQuestion(question, data, selectedId = null) {
-  const nodes = new Map((data.nodes || []).map((node) => [gid(node.gid), node]));
-  const named = [...new Set((question.match(/\d{15,19}/g) || []).filter((gid) => nodes.has(gid)))];
-  const sources = named.length ? named : selectedId && nodes.has(gid(selectedId)) ? [gid(selectedId)] : [];
-  const prompt = question.toLocaleLowerCase('ru');
-
-  if (/устойчив|изъят|удалени|распад/.test(prompt)) {
-    const resilience = data.optional?.resilience;
-    if (!resilience?.remove_top?.length) return { text: 'Оценка устойчивости ещё не рассчитана.', references: [] };
-    const first = resilience.remove_top.find((item) => item.n === 5) || resilience.remove_top[0];
-    return {
-      text: `После удаления топ-${first.n} по приоритету: ${first.components} фрагментов, крупнейший содержит ${first.largest_component} узлов (${first.largest_share_pct}% оставшихся). Это структурный сценарий, а не прогноз движения денег.`,
-      references: first.removed_gids.map((gid) => ({ gid, reason: 'Узел из сценария удаления' })),
-    };
-  }
-  if (/цикл|возврат/.test(prompt) || /маршрут|цепочк/.test(prompt)) {
-    const cycles = /цикл|возврат/.test(prompt);
-    const matches = (cycles ? data.optional?.cycles : data.optional?.repeated_routes) || [];
-    const visible = matches.filter((item) => !sources.length || sources.some((gid) => item.path.includes(gid))).slice(0, 3);
-    if (!visible.length) return { text: `В наблюдаемом графе ${cycles ? 'циклов длиной 2–4' : 'повторяющихся маршрутов'} для указанного узла не найдено.`, references: [] };
-    return {
-      text: `${cycles ? 'Наблюдаемые возвратные контуры' : 'Маршруты с совпадением переводов минимум в два дня'}: ${visible.map((item) => item.path.join(' → ')).join('; ')}. Это гипотезы для проверки.`,
-      references: [...new Set(visible.flatMap((item) => item.path))].map((gid) => ({ gid, reason: 'Узел указанного пути' })),
-    };
-  }
-
-  if (!sources.length) return {
-    text: 'Укажите один или несколько GID в вопросе либо выберите узел на графе. Например: «Кто собирает деньги с GID1 и GID2?»',
-    references: [],
-  };
-
-  const outgoing = new Map();
-  for (const edge of data.edges || []) {
-    const source = gid(edge.src);
-    if (!outgoing.has(source)) outgoing.set(source, []);
-    outgoing.get(source).push(gid(edge.dst));
-  }
-  const candidates = new Map();
-  for (const source of sources) {
-    const reached = new Map();
-    for (const first of outgoing.get(source) || []) {
-      if (first !== source) reached.set(first, 1);
-      for (const second of outgoing.get(first) || []) {
-        if (second !== source && !reached.has(second)) reached.set(second, 2);
-      }
-    }
-    for (const [target, hops] of reached) {
-      if (sources.includes(target)) continue;
-      const item = candidates.get(target) || { gid: target, sources: new Set(), minHops: hops };
-      item.sources.add(source);
-      item.minHops = Math.min(item.minHops, hops);
-      candidates.set(target, item);
-    }
-  }
-  const ranked = [...candidates.values()]
-    .filter((item) => sources.length === 1 || item.sources.size >= 2)
-    .sort((a, b) => b.sources.size - a.sources.size || a.minHops - b.minHops ||
-      Number(nodes.get(b.gid)?.priority_score || 0) - Number(nodes.get(a.gid)?.priority_score || 0) || a.gid.localeCompare(b.gid))
-    .slice(0, 5);
-  if (!ranked.length) return { text: 'Общей точки получения в пределах двух направленных переходов не найдено. За пределами выгрузки связи неизвестны.', references: [] };
-  return {
-    text: `Кандидаты на общую точку получения от ${sources.length} исходных GID в пределах двух переходов. Для первого кандидата видны пути от ${ranked[0].sources.size} исходных узлов. Это гипотеза по наблюдаемым связям.`,
-    references: ranked.map((item) => ({ gid: item.gid, reason: `${item.sources.size} исходных GID · ${item.minHops} ${item.minHops === 1 ? 'переход' : 'перехода'}` })),
-  };
-}
 
 const NODE_FACTS = [
   ['in_deg', 'Отправителей', 'integer'], ['out_deg', 'Получателей', 'integer'],
@@ -182,8 +116,10 @@ function setLoading(message, isError = false) {
 }
 function setBusy(busy) { state.busy = busy; $('rebuildButton').disabled = busy; $('rebuildButton').firstChild.textContent = busy ? 'Пересчёт модели… ' : 'Пересчитать модель '; }
 
-async function request(path, method = 'GET') {
-  const response = await fetch(path, { method, cache: 'no-store' });
+async function request(path, method = 'GET', body) {
+  const options = { method, cache: 'no-store' };
+  if (body !== undefined) { options.headers = { 'Content-Type': 'application/json' }; options.body = JSON.stringify(body); }
+  const response = await fetch(path, options);
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(payload.error || `Ошибка HTTP ${response.status}`);
   return payload;
@@ -637,18 +573,64 @@ function search() {
   if (query && match) selectNode(match.gid);
   else setNotice(query ? `GID ${query} не найден в текущей выгрузке.` : 'Введите gid для поиска.', 'error');
 }
-function askAssistant() {
+function updateAssistantButton() {
+  const button = $('assistantAsk');
+  button.disabled = state.assistantBusy || state.assistantConfigured === false;
+  button.textContent = state.assistantBusy ? 'GPT-6 Sol анализирует граф…' : 'Спросить GPT-6 Sol →';
+}
+
+async function loadAssistantStatus() {
+  const status = $('assistantStatus');
+  try {
+    const config = await request('/api/assistant/status');
+    state.assistantConfigured = config.configured === true;
+    status.textContent = config.configured
+      ? `Внешний OpenAI API · модель ${config.model}. Ответы — гипотезы для проверки.`
+      : 'Помощник не настроен. Задайте OPENAI_API_KEY в окружении сервера, перезапустите node server.mjs и обновите страницу.';
+    status.classList.toggle('error', !config.configured);
+  } catch (error) {
+    status.textContent = `Статус API недоступен: ${error.message}. Перезапустите сервер с актуальным кодом и обновите страницу.`;
+    status.classList.add('error');
+  } finally { updateAssistantButton(); }
+}
+
+async function askAssistant() {
+  if (state.assistantBusy) return;
   const target = $('assistantAnswer'); target.replaceChildren();
   if (!state.data) { target.append(element('p', '', 'Сначала загрузите граф.')); return; }
-  const answer = answerQuestion($('assistantQuestion').value, state.data, state.selectedId);
-  target.append(element('p', '', answer.text));
-  if (answer.references.length) {
-    const links = element('div', 'assistant-links');
-    for (const reference of answer.references) {
-      const button = element('button', 'gid-link', `${reference.gid} · ${reference.reason}`); button.type = 'button';
-      button.addEventListener('click', () => selectNode(reference.gid)); links.append(button);
+  if (state.assistantConfigured === false) {
+    target.append(element('p', '', 'Для отправки вопроса задайте OPENAI_API_KEY в окружении сервера и перезапустите его.'));
+    return;
+  }
+  const question = $('assistantQuestion').value.trim();
+  if (!question) { target.append(element('p', '', 'Введите вопрос о текущем графе.')); $('assistantQuestion').focus(); return; }
+  state.assistantBusy = true; updateAssistantButton();
+  target.setAttribute('aria-busy', 'true');
+  target.append(element('p', '', 'Отправляем вопрос и связанный фрагмент обезличенного графа в OpenAI API…'));
+  const dataVersion = state.dataVersion;
+  try {
+    const answer = await request('/api/assistant', 'POST', { question, selectedId: state.selectedId });
+    target.replaceChildren();
+    if (dataVersion !== state.dataVersion) {
+      target.append(element('p', '', 'Граф был пересчитан во время запроса. Задайте вопрос повторно по обновлённой выгрузке.'));
+      return;
     }
-    target.append(links);
+    if (typeof answer.text !== 'string' || !Array.isArray(answer.references)) throw new Error('Сервер вернул неполный ответ помощника.');
+    target.append(element('p', 'assistant-text', answer.text));
+    const references = answer.references.filter((reference) => state.byId.has(gid(reference.gid)));
+    if (references.length) {
+      const links = element('div', 'assistant-links');
+      for (const reference of references) {
+        const button = element('button', 'gid-link', `${gid(reference.gid)} · ${reference.reason}`); button.type = 'button';
+        button.addEventListener('click', () => selectNode(reference.gid)); links.append(button);
+      }
+      target.append(links);
+    }
+    target.append(element('p', 'optional-limit', `Ответ ${answer.model || 'GPT-6 Sol'} по предоставленному фрагменту графа. Проверьте выводы по связям узлов.`));
+  } catch (error) {
+    target.replaceChildren(element('p', 'assistant-error', `Не удалось получить ответ OpenAI API: ${error.message}`));
+  } finally {
+    state.assistantBusy = false; updateAssistantButton(); target.setAttribute('aria-busy', 'false');
   }
 }
 async function loadNetwork(rebuild = false) {
@@ -681,7 +663,8 @@ function start() {
   $('graphCanvas').addEventListener('click', (event) => { const { point } = pointAt(event); if (point?.clusterId !== undefined) { state.clusterId = point.clusterId; state.view = 'overview'; updateViewControls(); renderClusters(); drawGraph(); } else if (point) selectNode(point.id); });
   let resizeFrame = 0; window.addEventListener('resize', () => { cancelAnimationFrame(resizeFrame); resizeFrame = requestAnimationFrame(drawGraph); });
   loadNetwork();
+  loadAssistantStatus();
 }
 
 if (typeof document !== 'undefined') start();
-export { answerQuestion, buildIndex, gid, nodeFacts, roleOf, verificationPlan };
+export { buildIndex, gid, nodeFacts, roleOf, verificationPlan };

@@ -34,7 +34,7 @@ test('локальный сервер выдаёт приложение и ст�
   const url = `http://127.0.0.1:${port}`;
   const child = spawn(process.execPath, [join(root, 'server.mjs')], {
     cwd: root,
-    env: { ...process.env, PORT: String(port) },
+    env: { ...process.env, PORT: String(port), OPENAI_API_KEY: '' },
     windowsHide: true,
     stdio: 'ignore',
   });
@@ -63,4 +63,20 @@ test('локальный сервер выдаёт приложение и ст�
   assert.match(await layoutModule.text(), /clusterGrid/);
   const unknown = await fetch(`${url}/api/export/unknown.csv`);
   assert.equal(unknown.status, 404);
+
+  const assistant = await fetch(`${url}/api/assistant/status`);
+  assert.deepEqual(await assistant.json(), { configured: false, model: 'gpt-6-sol' });
+  const post = (body, headers = {}) => fetch(`${url}/api/assistant`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json', ...headers }, body,
+  });
+  const missingKey = await post(JSON.stringify({ question: 'Объясни роль' }));
+  assert.equal(missingKey.status, 503);
+  assert.match((await missingKey.json()).error, /OPENAI_API_KEY/);
+  assert.equal((await post('{broken')).status, 400);
+  assert.equal((await post(JSON.stringify({ question: '' }))).status, 400);
+  assert.equal((await post(JSON.stringify({ question: 'x'.repeat(22000) }))).status, 413);
+  assert.equal((await post('{}', { 'Content-Type': 'text/plain' })).status, 415);
+  assert.equal((await post('{}', { Origin: 'https://untrusted.example' })).status, 403);
+  const privateModule = await fetch(`${url}/src/openai-assistant.mjs`);
+  assert.equal(privateModule.status, 404);
 });
