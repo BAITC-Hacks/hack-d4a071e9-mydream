@@ -12,6 +12,8 @@ const formatInteger = new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 0 
 const formatOne = new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 1 });
 const $ = (id) => document.getElementById(id);
 const state = { data: null, byId: new Map(), incoming: new Map(), outgoing: new Map(), detailCache: new Map(), detailPending: new Map(), dataVersion: 0, selectedId: null, clusterId: null, view: 'overview', positions: [], clusterFlows: [], busy: false, assistantBusy: false, graphAnalysisBusy: false, assistantConfigured: null };
+const DETAIL_TABS = [['overview', 'Обзор'], ['connections', 'Связи'], ['calculation', 'Расчёт'], ['transactions', 'Переводы']];
+const detailNavigation = createDetailNavigation();
 const graphAnalysis = createAnalysisController({
   request: (payload) => request('/api/analysis', 'POST', payload),
   onChange: renderGraphAnalysis,
@@ -32,6 +34,32 @@ function kzt(value) { return `${fmt(value)} ₸`; }
 function percent(value) { return `${formatOne.format(finite(value) * 100)}%`; }
 function roleOf(value) { return ROLE[value] || { label: 'Роль для проверки', short: String(value || '—'), color: '#91a2b1' }; }
 function element(tag, className, text) { const node = document.createElement(tag); if (className) node.className = className; if (text !== undefined) node.textContent = String(text); return node; }
+
+function createDetailNavigation() {
+  let nodeId = null, activeTab = 'overview';
+  const keys = DETAIL_TABS.map(([key]) => key);
+  return {
+    get activeTab() { return activeTab; },
+    showNode(value) {
+      const nextId = gid(value);
+      if (nextId !== nodeId) { nodeId = nextId; activeTab = 'overview'; }
+      return activeTab;
+    },
+    selectTab(key) {
+      if (keys.includes(key)) activeTab = key;
+      return activeTab;
+    },
+    onKey(key) {
+      const index = keys.indexOf(activeTab);
+      if (key === 'ArrowRight') activeTab = keys[(index + 1) % keys.length];
+      else if (key === 'ArrowLeft') activeTab = keys[(index + keys.length - 1) % keys.length];
+      else if (key === 'Home') activeTab = keys[0];
+      else if (key === 'End') activeTab = keys.at(-1);
+      else return null;
+      return activeTab;
+    },
+  };
+}
 
 const NODE_FACTS = [
   ['in_deg', 'Отправителей', 'integer'], ['out_deg', 'Получателей', 'integer'],
@@ -395,8 +423,53 @@ async function loadNodeDetail(id) {
     if (version === state.dataVersion) state.detailPending.delete(id);
   }
 }
+
+function renderDetailTabs(sections) {
+  const tabs = element('div', 'detail-tabs');
+  tabs.setAttribute('role', 'tablist');
+  tabs.setAttribute('aria-label', 'Разделы карточки GID');
+  tabs.setAttribute('aria-orientation', 'horizontal');
+  const buttons = new Map(), panels = new Map();
+  function activate(key, focus = false) {
+    const selected = detailNavigation.selectTab(key);
+    for (const [tabId, button] of buttons) {
+      const active = tabId === selected;
+      button.setAttribute('aria-selected', String(active));
+      button.tabIndex = active ? 0 : -1;
+      button.classList.toggle('active', active);
+      panels.get(tabId).hidden = !active;
+    }
+    if (focus) buttons.get(selected).focus();
+  }
+  for (const [key, label] of DETAIL_TABS) {
+    const button = element('button', 'detail-tab', label);
+    button.type = 'button'; button.id = `detail-tab-${key}`;
+    button.setAttribute('role', 'tab');
+    button.setAttribute('aria-controls', `detail-panel-${key}`);
+    const panel = element('div', `detail-tab-content detail-tab-${key}`);
+    panel.id = `detail-panel-${key}`; panel.tabIndex = 0;
+    panel.setAttribute('role', 'tabpanel');
+    panel.setAttribute('aria-labelledby', button.id);
+    panel.append(...sections[key]);
+    buttons.set(key, button); panels.set(key, panel);
+    button.addEventListener('click', () => activate(key));
+    button.addEventListener('keydown', (event) => {
+      const next = detailNavigation.onKey(event.key);
+      if (next === null) return;
+      event.preventDefault(); activate(next, true);
+    });
+    tabs.append(button);
+  }
+  activate(detailNavigation.activeTab);
+  return [tabs, ...panels.values()];
+}
+
 function renderDetail() {
-  const target = $('detailContent'); target.replaceChildren();
+  const target = $('detailContent');
+  const focusedTab = target.contains(document.activeElement) && document.activeElement.getAttribute('role') === 'tab'
+    ? document.activeElement.id : null;
+  detailNavigation.showNode(state.selectedId);
+  target.replaceChildren();
   const detail = state.detailCache.get(state.selectedId);
   const node = detail?.node || state.byId.get(state.selectedId);
   renderVerificationPlan(node);
@@ -414,9 +487,17 @@ function renderDetail() {
   const flowGrid = element('div', 'flow-grid'); flowGrid.append(flowBox('Входящие', node.in_deg ?? incoming.length, node.in_tx ?? incoming.reduce((sum, edge) => sum + finite(edge.n_tx), 0), node.in_kzt ?? incoming.reduce((sum, edge) => sum + finite(edge.sum_kzt), 0)), flowBox('Исходящие', node.out_deg ?? outgoing.length, node.out_tx ?? outgoing.reduce((sum, edge) => sum + finite(edge.n_tx), 0), node.out_kzt ?? outgoing.reduce((sum, edge) => sum + finite(edge.sum_kzt), 0))); flow.append(flowGrid);
   flow.append(connectionList('Отправители', incoming, 'incoming'), connectionList('Получатели', outgoing, 'outgoing'));
   if (finite(node.depth) >= 4 && !outgoing.length) flow.append(element('div', 'depth-warning', 'Узел на 4-м колене: отсутствие исходящих связей может быть следствием границы выгрузки, а не удержания средств.'));
-  body.append(idRow, hypothesis, scores, renderNodeInsights(node), flow, renderClusterContext(cluster, node), renderNodeFacts(node), renderTransactions(detail), renderPriorityFactors(node));
-  body.append(element('p', 'detail-source-note', 'Источник: обезличенная выгрузка переводов. Имён, счетов, назначения платежа и времени точнее даты в ней нет.'));
+  const summary = element('div', 'detail-summary');
+  summary.append(idRow, hypothesis, scores);
+  const sourceNote = element('p', 'detail-source-note', 'Источник: обезличенная выгрузка переводов. Имён, счетов, назначения платежа и времени точнее даты в ней нет.');
+  body.append(summary, ...renderDetailTabs({
+    overview: [renderNodeInsights(node), renderClusterContext(cluster, node), sourceNote],
+    connections: [flow],
+    calculation: [renderPriorityFactors(node), renderNodeFacts(node)],
+    transactions: [renderTransactions(detail)],
+  }));
   target.append(body); $('detailIndex').textContent = `КЛАСТЕР ${node.cluster_id ?? '—'}`;
+  if (focusedTab) $(focusedTab)?.focus({ preventScroll: true });
   if (!detail) loadNodeDetail(state.selectedId);
 }
 
@@ -757,4 +838,4 @@ function start() {
 }
 
 if (typeof document !== 'undefined') start();
-export { buildIndex, gid, nodeFacts, roleOf, verificationPlan };
+export { buildIndex, createDetailNavigation, gid, nodeFacts, roleOf, verificationPlan };
