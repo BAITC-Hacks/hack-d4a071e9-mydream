@@ -69,9 +69,14 @@
         <div class="panel clusters-panel" id="clusters"><div class="panel-heading"><div><p class="eyebrow">04 / СТРУКТУРА</p><h2>Кластеры</h2><p>Группы связей и гипотезы для проверки.</p></div><span id="clusterCount" class="count-pill">—</span></div><div id="clusterList" class="cluster-list"></div></div>
       </section>
 
+      <section class="optional-grid" aria-label="Дополнительный анализ">
+        <div class="panel optional-panel"><div class="panel-heading"><div><p class="eyebrow">05 / СТРУКТУРА СЕТИ</p><h2>Маршруты и устойчивость</h2><p>Повторяющиеся пути, возвратные контуры и сценарий удаления узлов.</p></div></div><div id="optionalOverview" class="optional-content"></div></div>
+        <div class="panel assistant-panel"><div class="panel-heading"><div><p class="eyebrow">06 / ВОПРОС К ГРАФУ</p><h2>Локальный помощник аналитика</h2><p>Ответы по текущей выгрузке со ссылками на GID, без внешнего API.</p></div></div><div class="assistant-content"><label for="assistantQuestion">Спросите о точке сбора, маршруте, цикле или устойчивости</label><textarea id="assistantQuestion" rows="3" placeholder="Кто собирает деньги с GID1 и GID2?"></textarea><button class="button button-primary" id="assistantAsk" type="button">Проверить по графу →</button><div id="assistantAnswer" class="assistant-answer" aria-live="polite">Укажите GID в вопросе или выберите узел на графе.</div></div></div>
+      </section>
+
       <section class="exports panel"><div><p class="eyebrow">ДАННЫЕ ДЛЯ ДАЛЬНЕЙШЕЙ РАБОТЫ</p><h2>Выгрузки анализа</h2><p>Три CSV с ролями всех узлов, кластерами и приоритетным списком.</p></div><div class="export-links"><a href="/api/export/nodes_roles.csv" download>Роли узлов <span>↗</span></a><a href="/api/export/clusters.csv" download>Кластеры <span>↗</span></a><a href="/api/export/top_nodes.csv" download>Топ узлов <span>↗</span></a></div></section>
       <section class="verification-panel panel" aria-labelledby="verificationTitle">
-        <div class="panel-heading"><div><p class="eyebrow">05 / УГЛУБЛЁННАЯ ПРОВЕРКА</p><h2 id="verificationTitle">Какие данные запросить дополнительно</h2><p>Отдельный план для выбранного gid: сведения для более детального выявления роли в цепочке.</p></div><span id="verificationGid" class="count-pill">Выберите gid</span></div>
+        <div class="panel-heading"><div><p class="eyebrow">07 / УГЛУБЛЁННАЯ ПРОВЕРКА</p><h2 id="verificationTitle">Какие данные запросить дополнительно</h2><p>Отдельный план для выбранного gid: сведения для более детального выявления роли в цепочке.</p></div><span id="verificationGid" class="count-pill">Выберите gid</span></div>
         <p id="verificationObserved" class="verification-observed">Выберите узел на карте или в очереди проверки.</p>
         <div id="verificationItems" class="verification-items" aria-live="polite"></div>
       </section>

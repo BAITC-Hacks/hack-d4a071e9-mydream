@@ -14,6 +14,7 @@ const staticFiles = new Map([
   ['/styles.css', ['styles.css', 'text/css; charset=utf-8']],
   ['/src/app.js', ['src/app.js', 'text/javascript; charset=utf-8']],
   ['/src/graph-layout.mjs', ['src/graph-layout.mjs', 'text/javascript; charset=utf-8']],
+  ['/src/analyst-assistant.mjs', ['src/analyst-assistant.mjs', 'text/javascript; charset=utf-8']],
 ]);
 const exportNames = new Set(['nodes_roles.csv', 'clusters.csv', 'top_nodes.csv']);
 let rebuildPromise = null;

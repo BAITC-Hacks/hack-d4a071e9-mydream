@@ -24,6 +24,8 @@ import networkx as nx
 import numpy as np
 import pandas as pd
 
+from optional_analysis import build_optional_analysis
+
 
 ROLES = {"consolidator", "transit", "distributor", "terminal", "coordinator", "peripheral"}
 ROLE_WEIGHT = {
@@ -301,6 +303,7 @@ def analyze(
 
     cluster_map = assign_clusters(graph)
     roles["cluster_id"] = roles.gid.map(cluster_map).astype(int)
+    optional_by_gid, optional_network = build_optional_analysis(nodes, tx, graph, roles)
     factors_by_gid = dict(zip(roles.gid, roles.priority_factors))
     roles = roles[ROLE_COLUMNS].sort_values("gid").reset_index(drop=True)
 
@@ -341,6 +344,7 @@ def analyze(
     # graph joins cannot silently merge or round distinct client identifiers.
     network_nodes = roles[node_columns].copy()
     network_nodes["priority_factors"] = [factors_by_gid[value] for value in network_nodes.gid]
+    network_nodes["optional"] = [optional_by_gid[int(value)] for value in network_nodes.gid]
     network_nodes["gid"] = network_nodes.gid.astype(str)
     network_edges = edges[["src", "dst", "sum_kzt", "n_tx", "depth"]].copy()
     network_edges["src"] = network_edges.src.astype(str)
@@ -352,6 +356,7 @@ def analyze(
         "edges": network_edges.to_dict("records"),
         "clusters": clusters.to_dict("records"),
         "top": network_top.to_dict("records"),
+        "optional": optional_network,
         "meta": {
             "n_nodes": int(len(nodes)), "n_edges": int(len(edges)),
             "n_transactions": int(len(tx)), "n_seeds": int(nodes.is_seed.sum()),

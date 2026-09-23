@@ -1,4 +1,5 @@
 import { clusterGrid, selectClusterNodes, layoutByDepth, selectEgoEdges } from './graph-layout.mjs';
+import { answerQuestion } from './analyst-assistant.mjs';
 const ROLE = {
   consolidator: { label: 'Признаки консолидации', short: 'Сбор', color: '#72d5c7' },
   transit: { label: 'Признаки транзита', short: 'Транзит', color: '#75aaf1' },
@@ -65,7 +66,7 @@ function renderVerificationPlan(node) {
   const list = $('verificationItems'); list.replaceChildren();
   $('verificationGid').textContent = node ? `GID ${gid(node.gid)}` : 'Выберите gid';
   $('verificationObserved').textContent = node
-    ? `Уже есть: колено ${node.depth ?? '—'}, ${fmt(node.in_deg)} входящих и ${fmt(node.out_deg)} исходящих связей, роль по расчёту — ${roleOf(node.role).short.toLowerCase()}.`
+    ? `Уже есть: колено ${node.depth ?? '—'}, ${fmt(node.in_deg)} входящих и ${fmt(node.out_deg)} исходящих связей, роль по расчёту — ${roleOf(node.role).short.toLowerCase()}. Следующий запрос: ${verificationPlan(node)[0].required}`
     : 'Выберите узел на карте или в очереди проверки.';
   if (!node) return;
   for (const item of verificationPlan(node)) {
@@ -157,7 +158,7 @@ function mountData(payload, preserveSelection = false) {
   $('runMeta').textContent = `${fmt(payload.nodes.length)} узлов · ${fmt(payload.edges.length)} связей`;
   $('graphEmpty').hidden = payload.nodes.length > 0;
   $('graphStage').hidden = payload.nodes.length === 0;
-  renderTop(); renderClusters(); renderDetail(); updateViewControls(); drawGraph();
+  renderTop(); renderClusters(); renderDetail(); renderOptionalOverview(); updateViewControls(); drawGraph();
   if (!state.selectedId && payload.top.length && state.byId.has(gid(payload.top[0].gid))) selectNode(payload.top[0].gid, false);
 }
 
@@ -231,6 +232,36 @@ function flowBox(label, count, transactions, amount) {
   box.append(element('span', '', label), element('strong', '', kzt(amount)), element('small', '', `${fmt(count)} ${countWord(count, 'связь', 'связи', 'связей')} · ${fmt(transactions)} ${countWord(transactions, 'операция', 'операции', 'операций')}`));
   return box;
 }
+
+function pathLink(path, description = '') {
+  const row = element('div', 'optional-path');
+  row.append(element('span', '', description));
+  for (const value of path) {
+    const button = element('button', 'gid-link', gid(value)); button.type = 'button';
+    button.addEventListener('click', () => selectNode(value)); row.append(button);
+  }
+  return row;
+}
+
+function renderOptionalOverview() {
+  const target = $('optionalOverview'); target.replaceChildren();
+  const optional = state.data?.optional;
+  if (!optional) { target.append(element('p', '', 'Пересчитайте модель для дополнительных сигналов.')); return; }
+  const routes = optional.repeated_routes || [], cycles = optional.cycles || [];
+  target.append(element('p', 'optional-lead', `${fmt(routes.length)} повторяющихся маршрутов · ${fmt(cycles.length)} возвратных контуров длиной 2–4.`));
+  const resilience = optional.resilience;
+  if (resilience) {
+    const area = element('div', 'resilience-list');
+    area.append(element('strong', '', `Исходно: ${fmt(resilience.baseline_components)} фрагментов, крупнейший — ${fmt(resilience.baseline_largest)} узлов.`));
+    for (const item of resilience.remove_top || []) {
+      area.append(element('p', '', `Без топ-${item.n}: ${fmt(item.components)} фрагментов, крупнейший — ${fmt(item.largest_component)} узлов (${item.largest_share_pct}% оставшихся).`));
+    }
+    target.append(area);
+  }
+  for (const route of routes.slice(0, 2)) target.append(pathLink(route.path, `${route.matching_days} ${countWord(route.matching_days, 'день', 'дня', 'дней')}: `));
+  for (const cycle of cycles.slice(0, 2)) target.append(pathLink(cycle.path, 'Цикл: '));
+  target.append(element('p', 'optional-limit', optional.method_limits || 'Сигналы описывают только наблюдаемую сеть.'));
+}
 function connectionList(title, edges, side) {
   const group = element('div', 'connection-group'); group.append(element('h4', '', `${title} · ${fmt(edges.length)}`));
   const list = element('div', 'connection-list');
@@ -254,6 +285,34 @@ function renderNodeFacts(node) {
     list.append(item);
   }
   section.append(list);
+  return section;
+}
+
+function renderNodeInsights(node) {
+  const section = element('section', 'detail-section optional-node');
+  section.append(element('h3', '', 'АВТОКАРТОЧКА И ДОПОЛНИТЕЛЬНЫЕ СИГНАЛЫ'));
+  section.append(element('p', 'node-summary', `GID ${gid(node.gid)}: ${roleOf(node.role).label.toLowerCase()}; вход ${fmt(node.in_deg)} отправителей / ${kzt(node.in_kzt)}, выход ${fmt(node.out_deg)} получателей / ${kzt(node.out_kzt)}. Приоритет проверки ${percent(node.priority_score)}.`));
+  const signal = node.optional;
+  if (!signal) { section.append(element('p', '', 'Дополнительные сигналы появятся после пересчёта.')); return section; }
+  const observation = signal.observation === 'depth_limit'
+    ? 'Граница 4-го колена: исходящие за пределами обхода неизвестны.'
+    : signal.observation === 'observed_terminal'
+      ? 'Наблюдаемый конечный получатель: исходящих в выгрузке нет; вне периода и банка они неизвестны.'
+      : 'Связи оценены в пределах выгрузки.';
+  section.append(element('p', 'optional-limit', observation + (node.is_seed ? ' У исходного клиента входящая история неполна.' : '')));
+  const values = [
+    [signal.transit_2d_count, 'входящих операций с исходящим переводом в тот же день или в следующие 2 дня'],
+    [signal.burst_days, 'дней со всплеском активности относительно других активных дней узла'],
+    [signal.synchronous_payers_days, 'дней с переводами минимум от 3 разных плательщиков'],
+    [signal.splitting_groups, 'групп из ≥3 переводов одному получателю за день по 5–25 тыс. ₸'],
+    [signal.route_count, 'повторяющихся маршрутов через узел'],
+    [signal.cycle_count, 'коротких возвратных контуров с участием узла'],
+  ];
+  const list = element('ul', 'signal-list');
+  for (const [value, description] of values) if (finite(value) > 0) list.append(element('li', '', `${fmt(value)} — ${description}`));
+  for (const flag of signal.peer_outliers || []) list.append(element('li', '', `Профиль: ${flag}.`));
+  if (!list.childNodes.length) list.append(element('li', '', 'Дополнительные условия в наблюдаемой выборке не сработали.'));
+  section.append(list, element('p', 'optional-limit', 'Совпадение дат и сумм не доказывает движение тех же денег. Сигналы — основания для проверки.'));
   return section;
 }
 function renderClusterContext(cluster, node) {
@@ -331,7 +390,7 @@ function renderDetail() {
   const flowGrid = element('div', 'flow-grid'); flowGrid.append(flowBox('Входящие', node.in_deg ?? incoming.length, node.in_tx ?? incoming.reduce((sum, edge) => sum + finite(edge.n_tx), 0), node.in_kzt ?? incoming.reduce((sum, edge) => sum + finite(edge.sum_kzt), 0)), flowBox('Исходящие', node.out_deg ?? outgoing.length, node.out_tx ?? outgoing.reduce((sum, edge) => sum + finite(edge.n_tx), 0), node.out_kzt ?? outgoing.reduce((sum, edge) => sum + finite(edge.sum_kzt), 0))); flow.append(flowGrid);
   flow.append(connectionList('Отправители', incoming, 'incoming'), connectionList('Получатели', outgoing, 'outgoing'));
   if (finite(node.depth) >= 4 && !outgoing.length) flow.append(element('div', 'depth-warning', 'Узел на 4-м колене: отсутствие исходящих связей может быть следствием границы выгрузки, а не удержания средств.'));
-  body.append(idRow, hypothesis, scores, flow, renderClusterContext(cluster, node), renderNodeFacts(node), renderTransactions(detail), renderPriorityFactors(node));
+  body.append(idRow, hypothesis, scores, renderNodeInsights(node), flow, renderClusterContext(cluster, node), renderNodeFacts(node), renderTransactions(detail), renderPriorityFactors(node));
   body.append(element('p', 'detail-source-note', 'Источник: обезличенная выгрузка переводов. Имён, счетов, назначения платежа и времени точнее даты в ней нет.'));
   target.append(body); $('detailIndex').textContent = `КЛАСТЕР ${node.cluster_id ?? '—'}`;
   if (!detail) loadNodeDetail(state.selectedId);
@@ -513,6 +572,20 @@ function search() {
   if (query && match) selectNode(match.gid);
   else setNotice(query ? `GID ${query} не найден в текущей выгрузке.` : 'Введите gid для поиска.', 'error');
 }
+function askAssistant() {
+  const target = $('assistantAnswer'); target.replaceChildren();
+  if (!state.data) { target.append(element('p', '', 'Сначала загрузите граф.')); return; }
+  const answer = answerQuestion($('assistantQuestion').value, state.data, state.selectedId);
+  target.append(element('p', '', answer.text));
+  if (answer.references.length) {
+    const links = element('div', 'assistant-links');
+    for (const reference of answer.references) {
+      const button = element('button', 'gid-link', `${reference.gid} · ${reference.reason}`); button.type = 'button';
+      button.addEventListener('click', () => selectNode(reference.gid)); links.append(button);
+    }
+    target.append(links);
+  }
+}
 async function loadNetwork(rebuild = false) {
   if (state.busy) return;
   setBusy(true);
@@ -531,6 +604,8 @@ async function loadNetwork(rebuild = false) {
 function start() {
   $('rebuildButton').addEventListener('click', () => loadNetwork(true));
   $('searchButton').addEventListener('click', search);
+  $('assistantAsk').addEventListener('click', askAssistant);
+  $('assistantQuestion').addEventListener('keydown', (event) => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); askAssistant(); } });
   $('gidSearch').addEventListener('input', showSuggestions);
   $('gidSearch').addEventListener('keydown', (event) => { if (event.key === 'Enter') { event.preventDefault(); search(); } if (event.key === 'Escape') $('searchSuggestions').hidden = true; });
   $('overviewButton').addEventListener('click', () => { state.view = 'overview'; state.clusterId = null; updateViewControls(); renderClusters(); drawGraph(); });
