@@ -81,3 +81,30 @@ body{background:radial-gradient(circle at 75% -15%,#254b5d 0,transparent 40%),va
 .optional-grid{display:grid;grid-template-columns:1fr 1fr;gap:15px;margin-top:15px}.optional-content,.assistant-content{padding:0 24px 24px;color:#dcebe9;font-size:.75rem;line-height:1.5}.optional-lead{color:#d1ffe0;font-weight:750}.resilience-list{padding:12px;border:1px solid #486773;border-radius:7px;background:#203747}.resilience-list p{margin:5px 0 0}.optional-path{display:flex;align-items:center;flex-wrap:wrap;gap:5px;margin-top:10px}.optional-limit{margin-top:10px!important;color:#b9ced3!important;font-size:.69rem!important}.gid-link{padding:5px 7px;border:1px solid #5c9085;border-radius:5px;background:#20463f;color:#d7ffe7;font-size:.68rem;overflow-wrap:anywhere}.gid-link:hover{background:#31665a}.assistant-content label{display:block;margin-bottom:7px;color:#c9dcdf}.assistant-content textarea{display:block;width:100%;margin-bottom:10px;padding:11px;border:1px solid #658b91;border-radius:7px;background:#112633;color:#f4fffb;resize:vertical}.assistant-content .button{width:100%}.assistant-answer{min-height:64px;margin-top:13px;padding:13px;border:1px solid #486773;border-radius:7px;background:#203747}.assistant-answer p{margin:0}.assistant-links{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}.node-summary{font-weight:650}.signal-list{margin:10px 0;padding-left:19px;color:#dcebe9;font-size:.73rem;line-height:1.55}.signal-list li+li{margin-top:5px}
 @media(max-width:850px){.optional-grid{grid-template-columns:1fr}}@media(max-width:620px){.optional-content,.assistant-content{padding:0 18px 18px}}
 .assistant-status{margin:0 0 12px;color:#b9ced3;font-size:.7rem;overflow-wrap:anywhere}.assistant-status.error,.assistant-error{color:#ffc3b3}.assistant-text{white-space:pre-wrap;overflow-wrap:anywhere}
+
+/* Keep model analysis directly below the canvas, independent of the GID card. */
+.graph-column{display:grid;gap:15px;min-width:0}
+.graph-analysis{min-width:0;overflow:hidden;border-color:#5f8d89;background:#192f40}
+.analysis-heading{gap:12px;flex-wrap:wrap}
+.analysis-heading>div{min-width:0;flex:1 1 260px}
+.analysis-heading p{overflow-wrap:anywhere}
+.analysis-provider{flex:none;padding:6px 9px;border:1px solid #6b9e94;border-radius:6px;background:#20453f;color:#d8ffeb;font-size:.66rem;font-weight:750}
+.analysis-content{padding:0 24px 22px;min-width:0}
+.analysis-disclosure{margin:0 0 14px;color:#c9dcdf;font-size:.73rem;line-height:1.55}
+.analysis-status{margin:0 0 14px;color:#d4ffe5;font-size:.72rem;line-height:1.5;overflow-wrap:anywhere}
+.analysis-status.error{color:#ffccbd}
+.analysis-body{max-height:700px;overflow:auto;overscroll-behavior:contain;scrollbar-gutter:stable;padding-right:6px;min-width:0}
+.analysis-body:empty{display:none}
+.analysis-body:focus-visible{outline:2px solid #9ceacf;outline-offset:4px;border-radius:4px}
+.analysis-text{margin:0 0 18px;color:#f0f8f5;font-size:.83rem;line-height:1.7;white-space:pre-wrap;overflow-wrap:anywhere}
+.analysis-nodes{display:grid;gap:10px}
+.analysis-node{min-width:0;padding:13px 14px;border:1px solid #476b7a;border-radius:8px;background:#203b4b}
+.analysis-node-heading{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
+.analysis-gid{min-width:0;padding:0;border:0;background:none;text-align:left;color:#deffee;font-size:.79rem;font-weight:750;text-decoration:underline;text-underline-offset:3px;overflow-wrap:anywhere}
+.analysis-gid:hover{color:#fff}
+.analysis-score{flex:none;color:#d2ffe1;font-size:.83rem}
+.analysis-role{display:block;margin-top:5px;font-size:.7rem;font-weight:700}
+.analysis-node p{margin:8px 0 0;font-size:.78rem;line-height:1.6;color:#edf7f3;overflow-wrap:anywhere}
+.analysis-context,.analysis-limit{margin:14px 0 0;color:#bcd2d7;font-size:.69rem;line-height:1.5}
+.analysis-retry{padding:8px 10px;border:1px solid #83a39e;border-radius:6px;color:#e3ffef}
+@media(max-width:620px){.analysis-content{padding:0 18px 18px}.analysis-body{max-height:600px}.analysis-node{padding:11px}.analysis-gid{font-size:.73rem}.analysis-text{font-size:.8rem}}

@@ -1,4 +1,5 @@
 import { clusterGrid, selectClusterNodes, layoutByDepth, selectEgoEdges } from './graph-layout.mjs';
+import { createAnalysisController } from './analysis-controller.mjs';
 const ROLE = {
   consolidator: { label: 'Признаки консолидации', short: 'Сбор', color: '#72d5c7' },
   transit: { label: 'Признаки транзита', short: 'Транзит', color: '#75aaf1' },
@@ -10,7 +11,12 @@ const ROLE = {
 const formatInteger = new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 0 });
 const formatOne = new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 1 });
 const $ = (id) => document.getElementById(id);
-const state = { data: null, byId: new Map(), incoming: new Map(), outgoing: new Map(), detailCache: new Map(), detailPending: new Map(), dataVersion: 0, selectedId: null, clusterId: null, view: 'overview', positions: [], clusterFlows: [], busy: false, assistantBusy: false, assistantConfigured: null };
+const state = { data: null, byId: new Map(), incoming: new Map(), outgoing: new Map(), detailCache: new Map(), detailPending: new Map(), dataVersion: 0, selectedId: null, clusterId: null, view: 'overview', positions: [], clusterFlows: [], busy: false, assistantBusy: false, graphAnalysisBusy: false, assistantConfigured: null };
+const graphAnalysis = createAnalysisController({
+  request: (payload) => request('/api/analysis', 'POST', payload),
+  onChange: renderGraphAnalysis,
+  onBusyChange: (busy) => { state.graphAnalysisBusy = busy; updateAssistantButton(); },
+});
 
 function gid(value) { return String(value ?? '').trim(); }
 function finite(value) { const number = Number(value); return Number.isFinite(number) ? number : 0; }
@@ -145,6 +151,7 @@ function mountData(payload, preserveSelection = false) {
   const previous = preserveSelection ? state.selectedId : null;
   state.data = payload;
   state.detailCache.clear(); state.detailPending.clear(); state.dataVersion++;
+  graphAnalysis.clear();
   Object.assign(state, buildIndex(payload));
   state.clusterFlows = aggregateClusterFlows(payload.edges);
   state.selectedId = previous && state.byId.has(previous) ? previous : null;
@@ -188,6 +195,7 @@ function updateViewControls() {
   $('clearFocusButton').hidden = !state.selectedId && state.clusterId === null;
   const selected = state.byId.get(state.selectedId);
   $('graphCaption').textContent = ego && selected ? `Прямые входящие и исходящие связи gid ${state.selectedId}. Стрелки показывают движение денег.` : state.clusterId !== null ? `Кластер ${state.clusterId}: опорные узлы по приоритету, до 18 на каждом колене. Любой gid доступен через поиск.` : 'Кластеры наблюдаемой сети. Нажмите группу для просмотра её опорных узлов.';
+  refreshGraphAnalysis();
 }
 
 function renderTop() {
@@ -573,10 +581,75 @@ function search() {
   if (query && match) selectNode(match.gid);
   else setNotice(query ? `GID ${query} не найден в текущей выгрузке.` : 'Введите gid для поиска.', 'error');
 }
+function refreshGraphAnalysis() {
+  if (!state.data) return;
+  const nodeMode = state.view === 'ego' && state.byId.has(state.selectedId);
+  const payload = nodeMode ? { mode: 'node', gid: state.selectedId } : { mode: 'overview' };
+  $('graphAnalysisTitle').textContent = nodeMode ? 'Краткий разбор узла' : 'Почему эти узлы в приоритете';
+  $('graphAnalysisScope').textContent = nodeMode
+    ? `GID ${state.selectedId} · признаки, ограничения и следующий шаг`
+    : 'Обзор топ-10 по всей наблюдаемой сети · почему проверить и на что обратить внимание';
+  if (state.assistantConfigured !== true) {
+    $('graphAnalysisStatus').textContent = state.assistantConfigured === false
+      ? 'Для аналитики нужен OpenAI API: задайте OPENAI_API_KEY в окружении сервера, перезапустите его и обновите страницу.'
+      : 'Проверяем подключение OpenAI API…';
+    $('graphAnalysisBody').replaceChildren();
+    $('graphAnalysisRetry').hidden = true;
+    return;
+  }
+  graphAnalysis.select({ key: `${state.dataVersion}:${payload.mode}:${payload.gid || ''}`, payload });
+}
+
+function renderGraphAnalysis(result) {
+  const target = $('graphAnalysisBody');
+  const status = $('graphAnalysisStatus');
+  target.replaceChildren();
+  target.setAttribute('aria-busy', String(result.status === 'loading'));
+  status.classList.toggle('error', result.status === 'error');
+  $('graphAnalysisRetry').hidden = result.status !== 'error';
+  if (result.status === 'waiting' || result.status === 'loading') {
+    status.textContent = result.status === 'waiting'
+      ? 'Готовим анализ выбранного вида. Предыдущий запрос, если он есть, завершится первым.'
+      : 'Sol анализирует граф через OpenAI API…';
+    return;
+  }
+  if (result.status === 'error') {
+    status.textContent = `Аналитика недоступна: ${result.error.message}`;
+    return;
+  }
+  const answer = result.data;
+  const timestamp = new Date(answer.generated_at);
+  const date = Number.isNaN(timestamp.valueOf()) ? '' : ` · ${timestamp.toLocaleString('ru-RU')}`;
+  status.textContent = `${answer.cached ? 'Сохранённый ответ' : 'Ответ получен'} · ${answer.model}${date}`;
+  target.append(element('p', 'analysis-text', answer.text));
+  const references = new Map(answer.references.map((item) => [item.gid, item]));
+  const focus = answer.focus_gids || [];
+  const orderedIds = [...new Set([...focus, ...references.keys()])];
+  const list = element('div', 'analysis-nodes');
+  for (const id of orderedIds) {
+    const reference = references.get(id), node = state.byId.get(id);
+    if (!reference || !node) continue;
+    const card = element('article', 'analysis-node');
+    const heading = element('div', 'analysis-node-heading');
+    const rank = answer.mode === 'overview' ? focus.indexOf(id) + 1 : 0;
+    const button = element('button', 'analysis-gid', `${rank > 0 ? `${rank}. ` : ''}GID ${id}`);
+    button.type = 'button';
+    button.addEventListener('click', () => selectNode(id));
+    heading.append(button, element('strong', 'analysis-score', percent(node.priority_score)));
+    const role = element('span', 'analysis-role', roleOf(node.role).label);
+    role.style.color = roleOf(node.role).color;
+    card.append(heading, role, element('p', '', reference.reason));
+    list.append(card);
+  }
+  target.append(list);
+  const scope = answer.scope || {};
+  target.append(element('p', 'analysis-context', `Контекст модели: ${fmt(scope.nodes_sent)} узлов и ${fmt(scope.edges_sent)} связей из наблюдаемой сети. Полные рассчитанные показатели доступны в карточках.`));
+}
+
 function updateAssistantButton() {
   const button = $('assistantAsk');
-  button.disabled = state.assistantBusy || state.assistantConfigured === false;
-  button.textContent = state.assistantBusy ? 'GPT-6 Sol анализирует граф…' : 'Спросить GPT-6 Sol →';
+  button.disabled = state.assistantBusy || state.graphAnalysisBusy || state.assistantConfigured !== true;
+  button.textContent = state.assistantBusy ? 'GPT-6 Sol анализирует граф…' : state.graphAnalysisBusy ? 'Ожидаем сводку под графом…' : 'Спросить GPT-6 Sol →';
 }
 
 async function loadAssistantStatus() {
@@ -589,13 +662,14 @@ async function loadAssistantStatus() {
       : 'Помощник не настроен. Задайте OPENAI_API_KEY в окружении сервера, перезапустите node server.mjs и обновите страницу.';
     status.classList.toggle('error', !config.configured);
   } catch (error) {
+    state.assistantConfigured = false;
     status.textContent = `Статус API недоступен: ${error.message}. Перезапустите сервер с актуальным кодом и обновите страницу.`;
     status.classList.add('error');
-  } finally { updateAssistantButton(); }
+  } finally { updateAssistantButton(); refreshGraphAnalysis(); }
 }
 
 async function askAssistant() {
-  if (state.assistantBusy) return;
+  if (state.assistantBusy || state.graphAnalysisBusy) return;
   const target = $('assistantAnswer'); target.replaceChildren();
   if (!state.data) { target.append(element('p', '', 'Сначала загрузите граф.')); return; }
   if (state.assistantConfigured === false) {
@@ -604,7 +678,7 @@ async function askAssistant() {
   }
   const question = $('assistantQuestion').value.trim();
   if (!question) { target.append(element('p', '', 'Введите вопрос о текущем графе.')); $('assistantQuestion').focus(); return; }
-  state.assistantBusy = true; updateAssistantButton();
+  state.assistantBusy = true; graphAnalysis.setPaused(true); updateAssistantButton();
   target.setAttribute('aria-busy', 'true');
   target.append(element('p', '', 'Отправляем вопрос и связанный фрагмент обезличенного графа в OpenAI API…'));
   const dataVersion = state.dataVersion;
@@ -630,7 +704,7 @@ async function askAssistant() {
   } catch (error) {
     target.replaceChildren(element('p', 'assistant-error', `Не удалось получить ответ OpenAI API: ${error.message}`));
   } finally {
-    state.assistantBusy = false; updateAssistantButton(); target.setAttribute('aria-busy', 'false');
+    state.assistantBusy = false; graphAnalysis.setPaused(false); updateAssistantButton(); target.setAttribute('aria-busy', 'false');
   }
 }
 async function loadNetwork(rebuild = false) {
@@ -652,6 +726,7 @@ function start() {
   $('rebuildButton').addEventListener('click', () => loadNetwork(true));
   $('searchButton').addEventListener('click', search);
   $('assistantAsk').addEventListener('click', askAssistant);
+  $('graphAnalysisRetry').addEventListener('click', () => graphAnalysis.retry());
   $('assistantQuestion').addEventListener('keydown', (event) => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); askAssistant(); } });
   $('gidSearch').addEventListener('input', showSuggestions);
   $('gidSearch').addEventListener('keydown', (event) => { if (event.key === 'Enter') { event.preventDefault(); search(); } if (event.key === 'Escape') $('searchSuggestions').hidden = true; });

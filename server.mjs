@@ -2,7 +2,9 @@ import { createServer } from 'node:http';
 import { readFile, stat } from 'node:fs/promises';
 import { spawn } from 'node:child_process';
 import { join } from 'node:path';
+import { createHash } from 'node:crypto';
 import { askAssistant, assistantStatus, AssistantError, validateAssistantInput } from './src/openai-assistant.mjs';
+import { createGraphAnalysisService, validateAnalysisInput } from './src/graph-analysis.mjs';
 
 const root = process.cwd();
 const port = Number(process.env.PORT || 4173);
@@ -15,12 +17,14 @@ const staticFiles = new Map([
   ['/styles.css', ['styles.css', 'text/css; charset=utf-8']],
   ['/src/app.js', ['src/app.js', 'text/javascript; charset=utf-8']],
   ['/src/graph-layout.mjs', ['src/graph-layout.mjs', 'text/javascript; charset=utf-8']],
+  ['/src/analysis-controller.mjs', ['src/analysis-controller.mjs', 'text/javascript; charset=utf-8']],
 ]);
 const exportNames = new Set(['nodes_roles.csv', 'clusters.csv', 'top_nodes.csv']);
 let rebuildPromise = null;
 let assistantBusy = false;
+const graphAnalysis = createGraphAnalysisService({ ask: runAssistant });
 
-async function readAssistantRequest(request) {
+async function readAssistantRequest(request, validate = validateAssistantInput) {
   const allowedOrigins = new Set([`http://127.0.0.1:${request.socket.localPort}`, `http://localhost:${request.socket.localPort}`]);
   if (!allowedOrigins.has(`http://${request.headers.host}`) || (request.headers.origin && !allowedOrigins.has(request.headers.origin))) {
     throw new AssistantError(403, 'Вопросы принимаются только из локального интерфейса.');
@@ -37,7 +41,15 @@ async function readAssistantRequest(request) {
   let payload;
   try { payload = JSON.parse(Buffer.concat(chunks).toString('utf8')); }
   catch { throw new AssistantError(400, 'Некорректный JSON запроса.'); }
-  return validateAssistantInput(payload);
+  return validate(payload);
+}
+
+async function runAssistant(payload, network) {
+  if (assistantBusy) throw new AssistantError(429, 'Дождитесь завершения текущего запроса к модели.');
+  if (!assistantStatus().configured) throw new AssistantError(503, 'Задайте OPENAI_API_KEY в окружении сервера и перезапустите node server.mjs.');
+  assistantBusy = true;
+  try { return await askAssistant(payload, network); }
+  finally { assistantBusy = false; }
 }
 
 function sendJson(response, status, value) {
@@ -84,14 +96,16 @@ createServer(async (request, response) => {
     if (request.method === 'GET' && pathname === '/api/assistant/status') return sendJson(response, 200, assistantStatus());
     if (request.method === 'POST' && pathname === '/api/assistant') {
       const payload = await readAssistantRequest(request);
-      if (assistantBusy) throw new AssistantError(429, 'Дождитесь ответа на предыдущий вопрос.');
-      if (!assistantStatus().configured) throw new AssistantError(503, 'Задайте OPENAI_API_KEY в окружении сервера и перезапустите node server.mjs.');
-      assistantBusy = true;
-      try {
-        if (!await fileExists(networkPath)) throw new AssistantError(409, 'Сначала пересчитайте модель графа.');
-        const network = JSON.parse(await readFile(networkPath, 'utf8'));
-        return sendJson(response, 200, await askAssistant(payload, network));
-      } finally { assistantBusy = false; }
+      if (!await fileExists(networkPath)) throw new AssistantError(409, 'Сначала пересчитайте модель графа.');
+      const network = JSON.parse(await readFile(networkPath, 'utf8'));
+      return sendJson(response, 200, await runAssistant(payload, network));
+    }
+    if (request.method === 'POST' && pathname === '/api/analysis') {
+      const payload = await readAssistantRequest(request, validateAnalysisInput);
+      if (!await fileExists(networkPath)) throw new AssistantError(409, 'Сначала пересчитайте модель графа.');
+      const content = await readFile(networkPath, 'utf8');
+      const version = createHash('sha256').update(content).digest('hex');
+      return sendJson(response, 200, await graphAnalysis.analyze(payload, JSON.parse(content), version));
     }
     if (request.method === 'GET' && staticFiles.has(pathname)) {
       const [name, type] = staticFiles.get(pathname);

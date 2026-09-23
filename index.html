@@ -42,6 +42,7 @@
       </div>
 
       <section class="workspace" aria-label="Исследование графа">
+        <div class="graph-column">
         <div class="graph-panel panel">
           <div class="panel-heading graph-heading">
             <div><p class="eyebrow">01 / ИССЛЕДОВАНИЕ</p><h2>Карта переводов</h2><p id="graphCaption">Кластеры наблюдаемой сети. Нажмите группу для просмотра её опорных узлов.</p></div>
@@ -56,6 +57,20 @@
           <div id="graphEmpty" class="graph-empty" hidden>В полученном наборе нет узлов для отображения.</div>
           <div class="graph-stage" id="graphStage"><canvas id="graphCanvas" role="img" aria-label="Направленный граф переводов. Для поиска узла используйте поле gid."></canvas><div id="graphTooltip" class="graph-tooltip" hidden></div><span class="graph-watermark" id="graphWatermark">SRC <span>→</span> DST</span></div>
           <div class="graph-bottom"><div id="graphScale" class="graph-scale">Узлы и связи отображаются из выгрузки</div><div class="legend" id="graphLegend" aria-label="Цвета ролей"><span><i class="role-dot role-consolidator"></i>Сбор</span><span><i class="role-dot role-transit"></i>Транзит</span><span><i class="role-dot role-distributor"></i>Раздача</span><span><i class="role-dot role-terminal"></i>Конечный*</span><span><i class="role-dot role-coordinator"></i>Координация</span><span><i class="role-dot role-peripheral"></i>Периферия</span></div></div>
+        </div>
+        <section class="panel graph-analysis" aria-labelledby="graphAnalysisTitle">
+          <div class="panel-heading analysis-heading">
+            <div><p class="eyebrow">АНАЛИТИКА ПО КАРТЕ</p><h2 id="graphAnalysisTitle">Почему эти узлы в приоритете</h2><p id="graphAnalysisScope">Обзор топ-10 по всей наблюдаемой сети</p></div>
+            <span class="analysis-provider">OpenAI API · GPT-6 Sol</span>
+          </div>
+          <div class="analysis-content">
+            <p class="analysis-disclosure">Сводка формируется автоматически через внешний API по обезличенному фрагменту графа и рассчитанным показателям.</p>
+            <p id="graphAnalysisStatus" class="analysis-status" role="status">Подготовка контекста…</p>
+            <div id="graphAnalysisBody" class="analysis-body" tabindex="0" role="region" aria-label="Аналитика по текущему виду графа" aria-busy="false"></div>
+            <button id="graphAnalysisRetry" class="subtle-button analysis-retry" type="button" hidden>Повторить запрос к Sol →</button>
+            <p class="analysis-limit">Выводы — гипотезы для проверки. Модель поясняет расчёт и не меняет роли или очередь проверки.</p>
+          </div>
+        </section>
         </div>
 
         <aside class="detail-panel panel" id="detailPanel" tabindex="-1" aria-labelledby="detailTitle">
