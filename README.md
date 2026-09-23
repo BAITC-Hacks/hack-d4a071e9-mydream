@@ -4,7 +4,7 @@
 
 Обязательный сценарий — пересчёт, CSV, граф, поиск и карточки — работает локально на CPU без облачного кластера, GPU, платных сервисов и API-ключей. Дополнительный ИИ-помощник использует внешний OpenAI API с моделью GPT-6 Sol и требует ключ. Роли и приоритеты определяются открытыми правилами; наличие признаков не устанавливает виновность клиента.
 
-[Запуск](#быстрый-старт) · [Артефакты](#архитектура-и-артефакты) · [Формулы](#проверяемый-метод) · [Ограничения](#границы-интерпретации) · [Must-have](#соответствие-обязательным-функциям) · [Демо](PITCH.md)
+[Установка с нуля](#0-установка-с-нуля) · [Запуск](#быстрый-старт) · [Артефакты](#архитектура-и-артефакты) · [Формулы](#проверяемый-метод) · [Ограничения](#границы-интерпретации) · [Must-have](#соответствие-обязательным-функциям) · [Демо](PITCH.md)
 
 ## Системные требования и стек
 
@@ -30,6 +30,54 @@
 Период — **1–31 июля 2026 года**, 81 исходный клиент, только исходящие внутрибанковские цепочки до четырёх колен и операции от 5 000 KZT. Наблюдаемый оборот — **365 890 012,01 KZT** (в ТЗ округлён до 365 890 012). Обработка разовая, пакетная.
 
 ## Быстрый старт
+
+### 0. Установка с нуля
+
+Если на компьютере нет Git, Python или Node.js, поставьте их один раз по инструкции для своей системы. Интернет нужен только на этом шаге и при установке Python-пакетов в шаге 1. Нужны именно **CPython 3.12** (закреплённые версии numpy и NetworkX не ставятся на 3.11, 3.13 и 3.14) и **Node.js 24 LTS**. Репозиторий закрытый: у проверяющего должен быть доступ к нему в GitHub, иначе код можно получить ZIP-архивом ветки.
+
+**Windows 10/11, PowerShell.**
+
+```powershell
+winget install --id Git.Git -e
+winget install --id Python.Python.3.12 -e
+winget install --id OpenJS.NodeJS.LTS -e
+```
+
+Закройте и заново откройте PowerShell, чтобы обновился PATH. Проверьте `py -3.12 --version` и `node --version`. Лаунчер `py` ставится вместе с Python и не зависит от PATH; команда `python` без установленного Python открывает Microsoft Store. В шагах ниже вместо `python -m venv` можно писать `py -3.12 -m venv`. Без winget используйте установщики с python.org (отметьте «Add python.exe to PATH») и nodejs.org.
+
+**Ubuntu 22.04 / 24.04.**
+
+```bash
+sudo apt-get update
+sudo apt-get install -y git curl ca-certificates
+# Ubuntu 22.04 без Python 3.12 в репозитории: сначала подключите PPA
+sudo apt-get install -y software-properties-common && sudo add-apt-repository -y ppa:deadsnakes/ppa && sudo apt-get update
+sudo apt-get install -y python3.12 python3.12-venv
+curl -fsSL https://deb.nodesource.com/setup_24.x | sudo -E bash -
+sudo apt-get install -y nodejs
+```
+
+На Ubuntu 24.04 строка с PPA не нужна, `python3.12` и `python3.12-venv` есть в стандартном репозитории. Проверьте `python3.12 --version` и `node --version`. Пакет `python3.12-venv` обязателен: без него команда создания окружения завершится ошибкой `ensurepip`.
+
+**macOS 13 и новее.**
+
+```bash
+xcode-select --install          # если инструменты командной строки ещё не установлены
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+brew install git python@3.12 node@24
+echo 'export PATH="$(brew --prefix node@24)/bin:$PATH"' >> ~/.zprofile && source ~/.zprofile
+```
+
+Homebrew ставит `python3.12` сразу в PATH; `node@24` — версионная формула, поэтому её путь добавляется в профиль отдельной строкой выше. Проверьте `python3.12 --version` и `node --version`. Системный `python3` macOS для проекта не подходит.
+
+**Дальше для всех систем.** Получите код и перейдите в его папку, затем выполните шаги 1–3 ниже:
+
+```bash
+git clone -b test-arman https://github.com/BAITC-Hacks/hack-d4a071e9-mydream.git
+cd hack-d4a071e9-mydream
+```
+
+Установка Python-пакетов в шаге 1 скачивает около 100 МБ. `npm install` не нужен: сервер использует только стандартную библиотеку Node. Если pip не проходит через корпоративный прокси, добавьте `--trusted-host pypi.org --trusted-host files.pythonhosted.org`; в закрытом контуре пакеты можно заранее скачать командой `pip download -r track02/requirements.txt` на другой машине. Если порт 4173 занят, задайте другой через переменную окружения `PORT` перед `node server.mjs`. Лимит пяти минут из ТЗ относится к пересчёту в подготовленном окружении, установка в него не входит.
 
 ### 1. Однократная подготовка
 
