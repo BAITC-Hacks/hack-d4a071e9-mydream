@@ -122,7 +122,7 @@ class PipelineAnalysisTests(unittest.TestCase):
             required_node = {"gid", "role", "role_score", "priority_score", "cluster_id",
                              "is_seed", "depth", "in_deg", "out_deg", "in_kzt", "out_kzt", "evidence"}
             self.assertTrue(required_node.issubset(network["nodes"][0]))
-            self.assertEqual(set(network["edges"][0]), {"src", "dst", "sum_kzt", "n_tx"})
+            self.assertEqual(set(network["edges"][0]), {"src", "dst", "sum_kzt", "n_tx", "depth"})
 
 
 if __name__ == "__main__":

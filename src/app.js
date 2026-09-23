@@ -10,7 +10,7 @@ const ROLE = {
 const formatInteger = new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 0 });
 const formatOne = new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 1 });
 const $ = (id) => document.getElementById(id);
-const state = { data: null, byId: new Map(), incoming: new Map(), outgoing: new Map(), selectedId: null, clusterId: null, view: 'overview', positions: [], clusterFlows: [], busy: false };
+const state = { data: null, byId: new Map(), incoming: new Map(), outgoing: new Map(), detailCache: new Map(), detailPending: new Map(), dataVersion: 0, selectedId: null, clusterId: null, view: 'overview', positions: [], clusterFlows: [], busy: false };
 
 function gid(value) { return String(value ?? '').trim(); }
 function finite(value) { const number = Number(value); return Number.isFinite(number) ? number : 0; }
@@ -26,6 +26,27 @@ function kzt(value) { return `${fmt(value)} ₸`; }
 function percent(value) { return `${formatOne.format(finite(value) * 100)}%`; }
 function roleOf(value) { return ROLE[value] || { label: 'Роль для проверки', short: String(value || '—'), color: '#91a2b1' }; }
 function element(tag, className, text) { const node = document.createElement(tag); if (className) node.className = className; if (text !== undefined) node.textContent = String(text); return node; }
+
+const NODE_FACTS = [
+  ['in_deg', 'Отправителей', 'integer'], ['out_deg', 'Получателей', 'integer'],
+  ['in_kzt', 'Входящий объём', 'money'], ['out_kzt', 'Исходящий объём', 'money'],
+  ['in_tx', 'Входящих операций', 'integer'], ['out_tx', 'Исходящих операций', 'integer'],
+  ['active_days', 'Дней активности', 'integer'], ['pass_through', 'Исходящий / входящий поток', 'number'],
+  ['pagerank', 'PageRank', 'number'], ['betweenness', 'Посредничество', 'number'],
+  ['depth', 'Колено от исходного узла', 'integer'], ['is_seed', 'Исходный узел', 'boolean'],
+  ['truncated_by_depth', 'Граница выгрузки', 'boolean'], ['data_quality', 'Коэффициент полноты', 'number'],
+];
+function nodeFacts(node) {
+  return NODE_FACTS.filter(([key]) => Object.hasOwn(node, key))
+    .map(([key, label, format]) => ({ key, label, format, value: node[key] }));
+}
+function factValue(fact) {
+  if (fact.value === null || fact.value === undefined) return '—';
+  if (fact.format === 'boolean') return fact.value ? 'Да' : 'Нет';
+  if (fact.format === 'money') return kzt(fact.value);
+  if (fact.format === 'integer') return fmt(fact.value);
+  return String(fact.value);
+}
 
 function verificationPlan(node) {
   const items = [];
@@ -121,6 +142,7 @@ function mountData(payload, preserveSelection = false) {
   }
   const previous = preserveSelection ? state.selectedId : null;
   state.data = payload;
+  state.detailCache.clear(); state.detailPending.clear(); state.dataVersion++;
   Object.assign(state, buildIndex(payload));
   state.clusterFlows = aggregateClusterFlows(payload.edges);
   state.selectedId = previous && state.byId.has(previous) ? previous : null;
@@ -148,6 +170,11 @@ function selectNode(value, switchToEgo = true) {
   $('searchSuggestions').hidden = true;
   setNotice('');
   renderDetail(); renderTop(); renderClusters(); updateViewControls(); drawGraph();
+  if (switchToEgo) {
+    const panel = $('detailPanel');
+    panel.focus({ preventScroll: true });
+    panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
   return true;
 }
 
@@ -199,7 +226,11 @@ function renderClusters() {
 }
 
 function scoreBox(label, value, accent = false) { const box = element('div', 'score-box'); box.append(element('span', '', label), element('strong', accent ? 'accent' : '', value)); return box; }
-function flowBox(label, count, amount) { const box = element('div', 'flow-box'); box.append(element('span', '', label), element('strong', '', `${fmt(count)} ${countWord(count, "связь", "связи", "связей")}`), element('small', '', kzt(amount))); return box; }
+function flowBox(label, count, transactions, amount) {
+  const box = element('div', 'flow-box');
+  box.append(element('span', '', label), element('strong', '', kzt(amount)), element('small', '', `${fmt(count)} ${countWord(count, 'связь', 'связи', 'связей')} · ${fmt(transactions)} ${countWord(transactions, 'операция', 'операции', 'операций')}`));
+  return box;
+}
 function connectionList(title, edges, side) {
   const group = element('div', 'connection-group'); group.append(element('h4', '', `${title} · ${fmt(edges.length)}`));
   const list = element('div', 'connection-list');
@@ -207,30 +238,103 @@ function connectionList(title, edges, side) {
   for (const edge of edges) {
     const otherId = side === 'incoming' ? gid(edge.src) : gid(edge.dst);
     const row = element('button', 'connection-row'); row.type = 'button';
-    row.append(element('span', '', `${side === 'incoming' ? '←' : '→'} ${otherId}`), element('small', '', `${kzt(edge.sum_kzt)} · ${fmt(edge.n_tx)} транз.`));
+    const depth = edge.depth === undefined ? '' : ` · колено ${edge.depth}`;
+    row.append(element('span', '', `${side === 'incoming' ? '←' : '→'} ${otherId}`), element('small', '', `${kzt(edge.sum_kzt)} · ${fmt(edge.n_tx)} оп.${depth}`));
     row.addEventListener('click', () => selectNode(otherId)); list.append(row);
   }
   group.append(list); return group;
 }
+function renderNodeFacts(node) {
+  const section = element('section', 'detail-section');
+  section.append(element('h3', '', 'ВСЕ ПОКАЗАТЕЛИ УЗЛА'));
+  const list = element('dl', 'facts-grid');
+  for (const fact of nodeFacts(node)) {
+    const item = element('div', 'fact-item');
+    item.append(element('dt', '', fact.label), element('dd', '', factValue(fact)));
+    list.append(item);
+  }
+  section.append(list);
+  return section;
+}
+function renderClusterContext(cluster, node) {
+  const section = element('section', 'detail-section');
+  section.append(element('h3', '', 'КЛАСТЕР И ПОЛОЖЕНИЕ'));
+  section.append(element('p', '', `Кластер ${node.cluster_id ?? '—'} · колено ${node.depth ?? '—'} · ${node.is_seed ? 'исходный клиент' : 'узел расширения'}.`));
+  if (cluster) {
+    section.append(element('p', 'cluster-hypothesis', cluster.hypothesis || 'Гипотеза группы не сформулирована.'));
+    section.append(element('p', 'cluster-facts', `${fmt(cluster.n_nodes)} узлов · ${fmt(cluster.n_seed)} исходных · внутренний оборот ${kzt(cluster.sum_kzt_internal)}`));
+    const top = topGids(cluster.top_gids);
+    if (top) section.append(element('p', 'cluster-key-gids', `Ключевые GID: ${top}`));
+  }
+  return section;
+}
+function renderTransactions(detail) {
+  const section = element('section', 'detail-section transaction-section');
+  const transactions = detail?.transactions;
+  section.append(element('h3', '', `ОТДЕЛЬНЫЕ ПЕРЕВОДЫ${transactions ? ` · ${fmt(transactions.length)}` : ''}`));
+  if (!transactions) {
+    const status = element('p', 'transaction-status', 'Загружаем операции выбранного GID…');
+    status.id = 'transactionStatus'; section.append(status);
+    return section;
+  }
+  if (!transactions.length) {
+    section.append(element('p', '', 'Отдельных переводов в этой выборке нет.'));
+    return section;
+  }
+  const list = element('div', 'transaction-list');
+  for (const tx of transactions) {
+    const row = element('article', 'transaction-row');
+    const incoming = tx.direction === 'incoming';
+    const top = element('div', 'transaction-top');
+    top.append(element('time', '', tx.date), element('span', incoming ? 'tx-incoming' : 'tx-outgoing', incoming ? 'Входящий' : 'Исходящий'), element('strong', '', kzt(tx.sum_kzt)));
+    row.append(top, element('div', 'transaction-path', `${gid(tx.src)} → ${gid(tx.dst)}`));
+    list.append(row);
+  }
+  section.append(list);
+  return section;
+}
+async function loadNodeDetail(id) {
+  if (state.detailCache.has(id) || state.detailPending.has(id)) return;
+  const version = state.dataVersion;
+  const pending = request(`/api/node/${encodeURIComponent(id)}`);
+  state.detailPending.set(id, pending);
+  try {
+    const detail = await pending;
+    if (version !== state.dataVersion || gid(detail.gid) !== id) return;
+    state.detailCache.set(id, detail);
+    if (state.selectedId === id) renderDetail();
+  } catch (error) {
+    if (version === state.dataVersion && state.selectedId === id) {
+      const status = $('transactionStatus');
+      if (status) status.textContent = `Не удалось загрузить отдельные операции: ${error.message}`;
+    }
+  } finally {
+    if (version === state.dataVersion) state.detailPending.delete(id);
+  }
+}
 function renderDetail() {
   const target = $('detailContent'); target.replaceChildren();
-  const node = state.byId.get(state.selectedId);
+  const detail = state.detailCache.get(state.selectedId);
+  const node = detail?.node || state.byId.get(state.selectedId);
   renderVerificationPlan(node);
   if (!node) { $('detailIndex').textContent = '—'; target.append(element('div', 'detail-placeholder', 'Выберите узел на карте, в топ-листе или найдите его по gid.')); return; }
-  const incoming = state.incoming.get(state.selectedId) || [], outgoing = state.outgoing.get(state.selectedId) || [];
+  const incoming = detail?.incoming || state.incoming.get(state.selectedId) || [], outgoing = detail?.outgoing || state.outgoing.get(state.selectedId) || [];
+  const cluster = detail?.cluster || state.data.clusters.find((item) => gid(item.cluster_id) === gid(node.cluster_id));
   const role = roleOf(node.role), body = element('div', 'detail-body'), idRow = element('div', 'detail-id');
   const heading = element('div'); heading.append(element('small', '', 'GID / ОБЕЗЛИЧЕННЫЙ КЛИЕНТ'), element('h2', 'detail-title', state.selectedId)); heading.lastChild.id = 'detailTitle';
   idRow.append(heading); if (node.is_seed) idRow.append(element('span', 'seed-tag', 'ИСХОДНЫЙ'));
-  const roleChip = element('span', 'role-chip', role.label); roleChip.style.color = role.color;
+  const hypothesis = element('section', 'role-hypothesis');
+  hypothesis.style.setProperty('--role-color', role.color);
+  hypothesis.append(element('h3', '', 'ГИПОТЕЗА О РОЛИ'), element('strong', '', role.label), element('p', '', node.evidence || 'Основание не указано в результатах расчёта.'));
   const scores = element('div', 'detail-score'); scores.append(scoreBox('Приоритет проверки', percent(node.priority_score), true), scoreBox('Сила признаков роли', percent(node.role_score)));
-  const evidence = element('section', 'detail-section'); evidence.append(element('h3', '', 'ОСНОВАНИЕ ГИПОТЕЗЫ'), element('p', '', node.evidence || 'Обоснование отсутствует в результатах расчёта.'));
   const flow = element('section', 'detail-section'); flow.append(element('h3', '', 'ПОТОКИ В НАБЛЮДАЕМОЙ СЕТИ'));
-  const flowGrid = element('div', 'flow-grid'); flowGrid.append(flowBox('Входящие', incoming.length, node.in_kzt ?? incoming.reduce((sum, edge) => sum + finite(edge.sum_kzt), 0)), flowBox('Исходящие', outgoing.length, node.out_kzt ?? outgoing.reduce((sum, edge) => sum + finite(edge.sum_kzt), 0))); flow.append(flowGrid);
+  const flowGrid = element('div', 'flow-grid'); flowGrid.append(flowBox('Входящие', node.in_deg ?? incoming.length, node.in_tx ?? incoming.reduce((sum, edge) => sum + finite(edge.n_tx), 0), node.in_kzt ?? incoming.reduce((sum, edge) => sum + finite(edge.sum_kzt), 0)), flowBox('Исходящие', node.out_deg ?? outgoing.length, node.out_tx ?? outgoing.reduce((sum, edge) => sum + finite(edge.n_tx), 0), node.out_kzt ?? outgoing.reduce((sum, edge) => sum + finite(edge.sum_kzt), 0))); flow.append(flowGrid);
   flow.append(connectionList('Отправители', incoming, 'incoming'), connectionList('Получатели', outgoing, 'outgoing'));
   if (finite(node.depth) >= 4 && !outgoing.length) flow.append(element('div', 'depth-warning', 'Узел на 4-м колене: отсутствие исходящих связей может быть следствием границы выгрузки, а не удержания средств.'));
-  body.append(idRow, roleChip, scores, renderPriorityFactors(node), evidence, flow);
-  const context = element('section', 'detail-section'); context.append(element('h3', '', 'ПОЛОЖЕНИЕ В ГРАФЕ'), element('p', '', `Кластер ${node.cluster_id ?? '—'} · колено ${node.depth ?? '—'} · ${node.is_seed ? 'исходный клиент' : 'узел расширения'}.`)); body.append(context);
+  body.append(idRow, hypothesis, scores, flow, renderClusterContext(cluster, node), renderNodeFacts(node), renderTransactions(detail), renderPriorityFactors(node));
+  body.append(element('p', 'detail-source-note', 'Источник: обезличенная выгрузка переводов. Имён, счетов, назначения платежа и времени точнее даты в ней нет.'));
   target.append(body); $('detailIndex').textContent = `КЛАСТЕР ${node.cluster_id ?? '—'}`;
+  if (!detail) loadNodeDetail(state.selectedId);
 }
 
 function aggregateClusterFlows(edges) {
@@ -303,18 +407,18 @@ function drawGraph() {
     const byCluster = new Map(points.map((point) => [point.clusterId, point]));
     for (const flow of state.clusterFlows) {
       const source = byCluster.get(flow.sourceCluster), target = byCluster.get(flow.targetCluster);
-      if (source && target) drawArrow(ctx, source, target, '#8cafbd', .8, .28, 10);
+      if (source && target) drawArrow(ctx, source, target, '#b6d7e2', 1.1, .48, 10);
     }
     const selectedCluster = gid(state.byId.get(state.selectedId)?.cluster_id);
     for (const point of points) {
       const active = point.clusterId === selectedCluster;
-      ctx.globalAlpha = 1; ctx.fillStyle = active ? '#78d8b9' : point.cluster.n_seed ? '#3b9386' : '#58788b';
+      ctx.globalAlpha = 1; ctx.fillStyle = active ? '#a4ffd1' : point.cluster.n_seed ? '#59c4ac' : '#88adbf';
       ctx.beginPath(); ctx.arc(point.x, point.y, point.radius, 0, Math.PI * 2); ctx.fill();
       if (active) {
         ctx.strokeStyle = '#dcffe5'; ctx.lineWidth = 2;
         ctx.beginPath(); ctx.arc(point.x, point.y, point.radius + 3, 0, Math.PI * 2); ctx.stroke();
       }
-      ctx.fillStyle = '#081b22'; ctx.font = '700 8px system-ui'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillStyle = '#081b22'; ctx.font = '800 9px system-ui'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       ctx.fillText(point.clusterId, point.x, point.y);
     }
     ctx.globalAlpha = 1;
@@ -350,14 +454,14 @@ function drawGraph() {
     const target = ego ? right.get(targetId) || location.get(targetId) : location.get(targetId);
     if (!source || !target) continue;
     const emphasized = sourceId === selected || targetId === selected;
-    drawArrow(ctx, source, target, emphasized ? '#bdf3d0' : '#6b94a3', emphasized ? 1.35 : .7, emphasized ? .55 : .28, ego ? 5 : 4);
+    drawArrow(ctx, source, target, emphasized ? '#d1ffe0' : '#9ac4d0', emphasized ? 1.6 : .9, emphasized ? .9 : .48, ego ? 5 : 4);
   }
   ctx.globalAlpha = 1;
   const topIds = new Set((state.data.top || []).slice(0, 20).map((item) => gid(item.gid)));
   for (const point of positions) {
     const active = point.id === selected, radius = active ? 7 : ego ? 4.4 : topIds.has(point.id) ? 4.5 : 3.6;
     ctx.beginPath(); ctx.arc(point.x, point.y, radius, 0, Math.PI * 2);
-    ctx.fillStyle = roleOf(point.node.role).color; ctx.globalAlpha = ego || active || topIds.has(point.id) ? 1 : .85; ctx.fill();
+    ctx.fillStyle = roleOf(point.node.role).color; ctx.globalAlpha = 1; ctx.fill();
     if (active) {
       ctx.globalAlpha = .55; ctx.strokeStyle = '#d6ffe0'; ctx.lineWidth = 2;
       ctx.beginPath(); ctx.arc(point.x, point.y, radius + 5, 0, Math.PI * 2); ctx.stroke();
@@ -440,4 +544,4 @@ function start() {
 }
 
 if (typeof document !== 'undefined') start();
-export { buildIndex, gid, roleOf, verificationPlan };
+export { buildIndex, gid, nodeFacts, roleOf, verificationPlan };

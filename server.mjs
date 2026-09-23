@@ -7,6 +7,7 @@ const root = process.cwd();
 const port = Number(process.env.PORT || 4173);
 const outDir = join(root, 'track02', 'out');
 const networkPath = join(outDir, 'network.json');
+const transactionsPath = join(outDir, 'transactions_by_gid.json');
 const dataDir = join(root, 'track02', 'data');
 const staticFiles = new Map([
   ['/', ['index.html', 'text/html; charset=utf-8']],
@@ -67,12 +68,33 @@ createServer(async (request, response) => {
     if (request.method === 'GET' && pathname === '/api/health') {
       const inputNames = ['nodes.parquet', 'edges.parquet', 'transactions.parquet'];
       const dataReady = (await Promise.all(inputNames.map((name) => fileExists(join(dataDir, name))))).every(Boolean);
-      return sendJson(response, 200, { track: '02', dataReady, outputReady: await fileExists(networkPath), rebuilding: Boolean(rebuildPromise) });
+      const outputReady = await fileExists(networkPath) && await fileExists(transactionsPath);
+      return sendJson(response, 200, { track: '02', dataReady, outputReady, rebuilding: Boolean(rebuildPromise) });
     }
     if (request.method === 'GET' && pathname === '/api/network') {
       if (!await fileExists(networkPath)) return sendJson(response, 404, { error: 'Расчёт ещё не выполнен. Нажмите «Пересчитать модель».' });
       const network = JSON.parse(await readFile(networkPath, 'utf8'));
       return sendJson(response, 200, network);
+    }
+    if (request.method === 'GET' && pathname.startsWith('/api/node/')) {
+      const gid = pathname.slice('/api/node/'.length);
+      if (!/^\d+$/.test(gid)) return sendJson(response, 400, { error: 'Некорректный GID.' });
+      if (!await fileExists(networkPath)) return sendJson(response, 404, { error: 'Расчёт ещё не выполнен.' });
+      const network = JSON.parse(await readFile(networkPath, 'utf8'));
+      const node = network.nodes.find((item) => item.gid === gid);
+      if (!node) return sendJson(response, 404, { error: 'GID не найден в наблюдаемом графе.' });
+      if (!await fileExists(transactionsPath)) {
+        return sendJson(response, 503, { error: 'Для просмотра исходных операций пересчитайте модель.' });
+      }
+      const transactionsByGid = JSON.parse(await readFile(transactionsPath, 'utf8'));
+      return sendJson(response, 200, {
+        gid,
+        node,
+        incoming: network.edges.filter((edge) => edge.dst === gid),
+        outgoing: network.edges.filter((edge) => edge.src === gid),
+        cluster: network.clusters.find((item) => item.cluster_id === node.cluster_id) ?? null,
+        transactions: transactionsByGid[gid] ?? [],
+      });
     }
     if (request.method === 'GET' && pathname.startsWith('/api/export/')) {
       const name = pathname.slice('/api/export/'.length);

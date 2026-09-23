@@ -335,17 +335,13 @@ def analyze(
     ]
     top = top[TOP_COLUMNS]
 
-    node_columns = [
-        "gid", "role", "role_score", "priority_score", "cluster_id", "is_seed",
-        "depth", "in_deg", "out_deg", "in_kzt", "out_kzt", "evidence",
-        "in_tx", "out_tx", "data_quality", "truncated_by_depth",
-    ]
+    node_columns = ROLE_COLUMNS
     # GIDs exceed IEEE-754's safe integer range; JSON uses strings so browser
     # graph joins cannot silently merge or round distinct client identifiers.
     network_nodes = roles[node_columns].copy()
     network_nodes["priority_factors"] = [factors_by_gid[value] for value in network_nodes.gid]
     network_nodes["gid"] = network_nodes.gid.astype(str)
-    network_edges = edges[["src", "dst", "sum_kzt", "n_tx"]].copy()
+    network_edges = edges[["src", "dst", "sum_kzt", "n_tx", "depth"]].copy()
     network_edges["src"] = network_edges.src.astype(str)
     network_edges["dst"] = network_edges.dst.astype(str)
     network_top = top.copy()
@@ -370,6 +366,26 @@ def analyze(
     return roles, clusters, top, network
 
 
+def transaction_index(nodes: pd.DataFrame, tx: pd.DataFrame) -> dict[str, list[dict]]:
+    """Index raw observed transfers by exact GID for the on-demand detail API."""
+    indexed = {str(int(gid)): [] for gid in nodes.gid}
+    for row in tx.itertuples(index=False):
+        source, target = str(int(row.src)), str(int(row.dst))
+        transfer = {
+            "src": source, "dst": target,
+            "date": pd.Timestamp(row.date).date().isoformat(),
+            "sum_kzt": float(row.sum_kzt),
+        }
+        indexed[source].append({**transfer, "direction": "outgoing", "counterparty": target})
+        if target != source:
+            indexed[target].append({**transfer, "direction": "incoming", "counterparty": source})
+    for rows in indexed.values():
+        rows.sort(key=lambda transfer: (
+            transfer["date"], transfer["src"], transfer["dst"], transfer["sum_kzt"]
+        ))
+    return indexed
+
+
 def run_pipeline(data_dir: Path, out_dir: Path) -> dict:
     started = perf_counter()
     nodes, edges, tx = load_data(Path(data_dir))
@@ -382,6 +398,10 @@ def run_pipeline(data_dir: Path, out_dir: Path) -> dict:
     network["meta"]["runtime_sec"] = round(perf_counter() - started, 3)
     (out_dir / "network.json").write_text(
         json.dumps(network, ensure_ascii=False, allow_nan=False, separators=(",", ":")),
+        encoding="utf-8",
+    )
+    (out_dir / "transactions_by_gid.json").write_text(
+        json.dumps(transaction_index(nodes, tx), ensure_ascii=False, allow_nan=False, separators=(",", ":")),
         encoding="utf-8",
     )
     return network["meta"]
