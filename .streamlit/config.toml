@@ -1,0 +1,7 @@
+# Офлайн-демо: без вопроса про e-mail при первом запуске и без отправки статистики.
+# Браузер Streamlit по-прежнему открывает сам.
+[server]
+showEmailPrompt = false
+
+[browser]
+gatherUsageStats = false

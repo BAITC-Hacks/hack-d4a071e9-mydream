@@ -35,7 +35,7 @@ streamlit run app/streamlit_app.py           # экран просмотра: п
 | Windows x64 | `moneygraph-win-x64.zip` (≈150 МБ) | распаковать в короткий путь, например `C:\mg`, затем `run_offline.bat run` |
 | Linux x64 | `moneygraph-linux-x64.tar.gz` (≈170 МБ) | `tar -xzf moneygraph-linux-x64.tar.gz && cd moneygraph && ./run_offline.sh run` |
 
-Команды те же для обоих: `run`, `explain <gid>`, `check`, `test`, `app` (Streamlit, открыть http://localhost:8501).
+Команды те же для обоих: `run`, `explain <gid>`, `check`, `test`, `app` (Streamlit на http://localhost:8501). Вопрос Streamlit про e-mail при первом запуске отключён в `.streamlit/config.toml` (`server.showEmailPrompt = false`).
 
 - Windows: распаковывать командой `tar -xf moneygraph-win-x64.zip -C C:\mg` (tar встроен в Windows 10/11): это быстрее «Извлечь всё» в Проводнике, и tar сообщает об ошибках. Проводник на ~18 тыс. файлов может молча остановиться, тогда Python падает с `No module named 'encodings'`.
 - Windows: распаковывать в короткий путь. Самый длинный путь внутри архива — 158 символов, а лимит Windows — 260; глубокая папка в OneDrive может его превысить.

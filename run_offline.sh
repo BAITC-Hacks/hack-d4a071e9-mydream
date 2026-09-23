@@ -10,6 +10,6 @@ case "$cmd" in
   explain) "$PY" -m moneygraph explain "$@" ;;
   check)   "$PY" -m moneygraph check --out output ;;
   test)    "$PY" -m pytest -q tests ;;
-  app)     "$PY" -m streamlit run app/streamlit_app.py --server.headless true --browser.gatherUsageStats false ;;
+  app)     "$PY" -m streamlit run app/streamlit_app.py ;;  # настройки в .streamlit/config.toml
   *)       echo "run | explain <gid> | check | test | app" ;;
 esac

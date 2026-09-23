@@ -37,7 +37,7 @@ portable/linux/bin/python3 -m moneygraph run --data data --out output
 portable/linux/bin/python3 -m pytest -q tests
 
 # Архивы: проект + свой интерпретатор, без git и кэшей
-FILES=(moneygraph app data output tests requirements.txt README.md DESIGN.md run.sh run.ps1 run_offline.sh run_offline.bat)
+FILES=(.streamlit moneygraph app data output tests requirements.txt README.md DESIGN.md run.sh run.ps1 run_offline.sh run_offline.bat)
 EXCL=(--exclude='__pycache__' --exclude='*.pyc')
 rm -f dist/moneygraph-linux-x64.tar.gz dist/moneygraph-win-x64.zip
 stage=$(mktemp -d)

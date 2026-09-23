@@ -15,5 +15,5 @@ if /i "%CMD%"=="run"     "%PY%" -m moneygraph run --data data --out output & got
 if /i "%CMD%"=="explain" "%PY%" -m moneygraph explain %2 & goto :eof
 if /i "%CMD%"=="check"   "%PY%" -m moneygraph check --out output & goto :eof
 if /i "%CMD%"=="test"    "%PY%" -m pytest -q tests & goto :eof
-if /i "%CMD%"=="app"     "%PY%" -m streamlit run app\streamlit_app.py --browser.gatherUsageStats false & goto :eof
+if /i "%CMD%"=="app"     "%PY%" -m streamlit run app\streamlit_app.py & goto :eof
 echo run ^| explain ^<gid^> ^| check ^| test ^| app
