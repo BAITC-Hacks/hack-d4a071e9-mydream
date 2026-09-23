@@ -126,5 +126,5 @@ def assign(df: pd.DataFrame, edges: pd.DataFrame) -> pd.DataFrame:
                 break
         roles.append(res[0]); scores.append(round(res[1], 4)); evs.append(_cut(res[2]))
     df["role"], df["role_score"], df["evidence"] = roles, scores, evs
-    print("[roles]", dict(df.role.value_counts()))
+    print("[roles]", {k: int(v) for k, v in df.role.value_counts().items()})
     return df

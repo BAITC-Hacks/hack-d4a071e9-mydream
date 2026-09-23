@@ -19,6 +19,8 @@ from moneygraph.explain import explain, ROLE_RU, RULE_TEXT  # noqa: E402
 OUT, DATA = ROOT / "output", ROOT / "data"
 COLORS = {"coordinator": "#d62728", "consolidator": "#ff7f0e", "distributor": "#9467bd",
           "transit": "#1f77b4", "terminal": "#2ca02c", "peripheral": "#bdbdbd"}
+CLUSTER_PALETTE = ["#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd", "#8c564b",
+                   "#e377c2", "#17becf", "#bcbd22", "#7f7f7f", "#393b79", "#ad494a"]
 
 st.set_page_config(page_title="Граф денег", layout="wide")
 
@@ -57,9 +59,13 @@ with st.sidebar:
     q = st.text_input("gid", value=str(top.gid.iloc[0]))
     hops = st.slider("Окрестность, колен", 1, 3, 2)
     max_nodes = st.slider("Макс. узлов на схеме", 30, 400, 150, step=10)
+    color_by = st.radio("Цвет узлов на схеме", ["роль", "кластер"], horizontal=True)
     st.markdown("**Легенда**")
-    for r, col in COLORS.items():
-        st.markdown(f"<span style='color:{col}'>■</span> {r} — {ROLE_RU[r]}", unsafe_allow_html=True)
+    if color_by == "роль":
+        for r, col in COLORS.items():
+            st.markdown(f"<span style='color:{col}'>■</span> {r} — {ROLE_RU[r]}", unsafe_allow_html=True)
+    else:
+        st.markdown("цвет = номер кластера; кластеры окрестности перечислены под схемой")
     st.markdown("◆ — seed; толщина стрелки — сумма")
 
 
@@ -108,7 +114,9 @@ def render_node():
         r = feat.loc[n] if n in feat.index else None
         role = r.role if r is not None else "peripheral"
         title = (f"{n}\n{role} / приоритет {r.priority_score:.2f}\n{r.evidence}" if r is not None else str(n))
-        net.add_node(int(n), label=str(n)[-6:], title=title, color=COLORS[role],
+        color = (COLORS[role] if color_by == "роль" or r is None
+                 else CLUSTER_PALETTE[int(r.cluster_id) % len(CLUSTER_PALETTE)])
+        net.add_node(int(n), label=str(n)[-6:], title=title, color=color,
                      shape="diamond" if (r is not None and r.is_seed) else "dot",
                      size=28 if n == gid else 12 + (8 * r.priority_score if r is not None else 0),
                      borderWidth=4 if n == gid else 1)
@@ -117,6 +125,12 @@ def render_node():
         net.add_edge(int(u), int(v), value=1 + 6 * d["sum_kzt"] / mx, title=f"{d['sum_kzt']:,.0f} KZT, {d['n_tx']} tx")
     st.subheader(f"Окрестность {gid}: {sub.number_of_nodes()} узлов, {sub.number_of_edges()} рёбер")
     components.html(net.generate_html(), height=640, scrolling=False)
+    if color_by == "кластер":
+        hyp = clusters.set_index("cluster_id").hypothesis
+        in_view = feat.loc[[n for n in sub.nodes if n in feat.index]].cluster_id.value_counts()
+        st.markdown("  \n".join(
+            f"<span style='color:{CLUSTER_PALETTE[int(c) % len(CLUSTER_PALETTE)]}'>■</span> кластер {int(c)} — "
+            f"{k} узл. на схеме; {hyp.get(c, '')}" for c, k in in_view.items()), unsafe_allow_html=True)
 
     # ---------------- связи ----------------
     l, r_ = st.columns(2)
