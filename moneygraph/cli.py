@@ -1,9 +1,18 @@
 """python -m moneygraph run|explain|check"""
 import argparse
+import sys
 from pathlib import Path
 
 
+def _utf8_stdio():
+    # Windows: cp1252/cp866 и перенаправление вывода не кодируют кириллицу и «—»
+    for s in (sys.stdout, sys.stderr):
+        if hasattr(s, "reconfigure"):
+            s.reconfigure(encoding="utf-8", errors="replace")
+
+
 def main():
+    _utf8_stdio()
     ap = argparse.ArgumentParser(prog="moneygraph")
     sub = ap.add_subparsers(dest="cmd", required=True)
     r = sub.add_parser("run"); r.add_argument("--data", default="data"); r.add_argument("--out", default="output")
