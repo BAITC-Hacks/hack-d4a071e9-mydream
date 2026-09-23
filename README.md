@@ -35,6 +35,8 @@ streamlit run app/streamlit_app.py           # экран просмотра: п
 | Windows x64 | `moneygraph-win-x64.zip` (≈150 МБ) | распаковать в короткий путь, например `C:\mg`, затем `run_offline.bat run` |
 | Linux x64 | `moneygraph-linux-x64.tar.gz` (≈170 МБ) | `tar -xzf moneygraph-linux-x64.tar.gz && cd moneygraph && ./run_offline.sh run` |
 
+Готовые архивы — в ветке [`offline-bundles`](https://github.com/BAITC-Hacks/hack-d4a071e9-mydream/tree/offline-bundles) (части по 25 МБ + `join_win.bat` / `join_linux.sh`). Скачать только её: `git clone --single-branch -b offline-bundles https://github.com/BAITC-Hacks/hack-d4a071e9-mydream`.
+
 Команды те же для обоих: `run`, `explain <gid>`, `check`, `test`, `app` (Streamlit на http://localhost:8501). Вопрос Streamlit про e-mail при первом запуске отключён в `.streamlit/config.toml` (`server.showEmailPrompt = false`).
 
 - Windows: распаковывать командой `tar -xf moneygraph-win-x64.zip -C C:\mg` (tar встроен в Windows 10/11): это быстрее «Извлечь всё» в Проводнике, и tar сообщает об ошибках. Проводник на ~18 тыс. файлов может молча остановиться, тогда Python падает с `No module named 'encodings'`.
