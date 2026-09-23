@@ -322,7 +322,17 @@ def analyze(
 
     top = roles.sort_values(["priority_score", "gid"], ascending=[False, True]).head(50).copy()
     top.insert(0, "rank", range(1, len(top) + 1))
-    top["why"] = top.evidence
+    top["why"] = [
+        (
+            f"{row.evidence}; вклад: роль +{factors_by_gid[row.gid]['role']:.1f}, "
+            f"оборот +{factors_by_gid[row.gid]['volume']:.1f}, "
+            f"связи +{factors_by_gid[row.gid]['degree']:.1f}, "
+            f"посредничество +{factors_by_gid[row.gid]['bridge']:.1f}, "
+            f"активность +{factors_by_gid[row.gid]['activity']:.1f}; "
+            f"вычет за неполноту −{factors_by_gid[row.gid]['data_quality_penalty']:.1f} п.п."
+        )
+        for row in top.itertuples(index=False)
+    ]
     top = top[TOP_COLUMNS]
 
     node_columns = [

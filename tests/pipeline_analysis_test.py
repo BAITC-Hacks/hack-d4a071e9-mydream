@@ -70,6 +70,8 @@ class PipelineAnalysisTests(unittest.TestCase):
         self.assertEqual(sum(cluster["n_nodes"] for cluster in network["clusters"]), len(nodes))
         self.assertEqual(len(network["edges"]), len(edges))
         self.assertEqual(len(top), len(nodes))
+        self.assertTrue(top["why"].str.contains("вклад: роль").all())
+        self.assertTrue(top["why"].str.contains("вычет за неполноту").all())
         for item in network["nodes"]:
             factors = item["priority_factors"]
             self.assertNotIn("anomaly", factors)
