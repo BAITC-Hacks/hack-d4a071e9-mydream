@@ -38,6 +38,9 @@ test('Responses API uses requested model, server key and grounded structured out
   assert.equal(sent.text.format.type, 'json_schema');
   assert.equal(sent.text.format.strict, true);
   assert.equal(sent.tools, undefined);
+  assert.match(sent.instructions, /in_deg >= 1\.5 \* out_deg/);
+  assert.match(sent.instructions, /процентных пунктах/);
+  assert.match(sent.instructions, /не умножай.*100/);
   assert.match(sent.input, /100000000000000003/);
   assert.doesNotMatch(sent.input, /test-secret-not-real/);
   assert.equal(result.text, answer.text);
