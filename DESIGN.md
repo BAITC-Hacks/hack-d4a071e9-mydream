@@ -149,7 +149,7 @@ README.md  DESIGN.md  requirements.txt  run.ps1  run.sh  docs/schema.png
 
 Особые правила:
 - **Seed**: `pass_through` не используется (входящие занижены). Seed получает роль только по исходящим (`distributor`) или `peripheral` с evidence «seed; входящие вне выборки».
-- **`truncated`** → всегда peripheral с evidence «обход остановлен на 4-м колене; получил X от N; исходящие неизвестны». Опционально: `truncated_terminal_likelihood` = насколько профиль входящих похож на подтверждённых terminal на depth 1–3 (in_kzt, in_deg, max_single_src_share) — квантильный скор, не роль.
+- **`truncated`** → всегда peripheral с evidence «обход остановлен на 4-м колене; получил X от N; исходящие неизвестны». Реализовано: `terminal_likeness` — среднее процентилей in_kzt и in_deg среди подтверждённых стоков (не seed, depth 1–3, out_deg = 0), и `truncated_candidate` — проходит пороги terminal; 33 из 444. Скор, не роль; в evidence рекомендация «запросить 5-е колено».
 - **role_score** = превышение порога, нормированное 0–1: `min(1, (metric − threshold) / threshold)` по основной метрике правила; для peripheral — 0.2 фикс.
 
 Шаблоны evidence (≤ 200 символов, только числа из features):

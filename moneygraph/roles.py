@@ -84,9 +84,12 @@ def rule_terminal(r, ctx):
 def rule_peripheral(r, ctx):
     if r.no_edges:
         ev = "seed без переводов ≥5 000 KZT в выборке; входящие вне выборки" if r.is_seed else "нет рёбер в выборке"
+    elif r.truncated and r.truncated_candidate:
+        ev = (f"обход остановлен на 4-м колене: получил {r.in_kzt:,.0f} от {r.in_deg}; профиль как у конечного "
+              f"получателя (сумма не меньше, чем у {r.sink_pct_kzt:.0%} подтверждённых стоков) — запросить 5-е колено")
     elif r.truncated:
-        ev = (f"обход остановлен на 4-м колене: получил {r.in_kzt:,.0f} от {r.in_deg}; "
-              f"исходящие неизвестны, сток не подтверждён")
+        ev = (f"обход остановлен на 4-м колене: получил {r.in_kzt:,.0f} от {r.in_deg}; ниже порогов конечного "
+              f"получателя (сумма не меньше, чем у {r.sink_pct_kzt:.0%} подтверждённых стоков), сток не подтверждён")
     elif r.is_seed:
         ev = (f"seed: отправляет {r.out_deg} получателям {r.out_kzt:,.0f}; входящие занижены выгрузкой, "
               f"пропуск не интерпретируется")
@@ -110,8 +113,25 @@ def _adjacent_clusters(df: pd.DataFrame, edges: pd.DataFrame) -> pd.Series:
     return e.groupby("gid").oc.nunique()
 
 
+def _truncated_profile(df: pd.DataFrame) -> pd.DataFrame:
+    """Обрезанные 4-м коленом узлы: насколько их входящие похожи на подтверждённые стоки.
+    Подтверждённый сток — не seed, колено 1–3, исходящих нет: обход шёл дальше, значит «нет исходящих» — факт.
+    Процентиль = доля подтверждённых стоков с таким же или меньшим значением. Роль не меняется."""
+    ref = df[~df.is_seed & (df.out_deg == 0) & (df.depth < 4) & (df.in_deg > 0)]
+    kzt, deg = np.sort(ref.in_kzt.to_numpy()), np.sort(ref.in_deg.to_numpy())
+    pct = lambda ref_sorted, v: np.searchsorted(ref_sorted, v, side="right") / max(1, len(ref_sorted))
+    t = df.truncated.to_numpy()
+    df["sink_pct_kzt"] = np.where(t, pct(kzt, df.in_kzt.to_numpy()), 0.0).round(4)
+    sink_pct_deg = np.where(t, pct(deg, df.in_deg.to_numpy()), 0.0)
+    df["terminal_likeness"] = ((df.sink_pct_kzt + sink_pct_deg) / 2).round(4)
+    # кандидат — проходит те же пороги, что правило конечного получателя
+    df["truncated_candidate"] = df.truncated & ((df.in_kzt >= C.TERM_MIN_IN_KZT) | (df.in_deg >= C.TERM_MIN_IN_DEG))
+    return df
+
+
 def assign(df: pd.DataFrame, edges: pd.DataFrame) -> pd.DataFrame:
     df = df.copy()
+    df = _truncated_profile(df)
     df["n_adj_clusters"] = df.gid.map(_adjacent_clusters(df, edges)).fillna(0).astype(int)
     df["bt_rank"] = df.betweenness.rank(ascending=False, method="min").astype(int)
     ctx = {
@@ -126,5 +146,6 @@ def assign(df: pd.DataFrame, edges: pd.DataFrame) -> pd.DataFrame:
                 break
         roles.append(res[0]); scores.append(round(res[1], 4)); evs.append(_cut(res[2]))
     df["role"], df["role_score"], df["evidence"] = roles, scores, evs
-    print("[roles]", {k: int(v) for k, v in df.role.value_counts().items()})
+    print("[roles]", {k: int(v) for k, v in df.role.value_counts().items()},
+          f"| обрезанных {int(df.truncated.sum())}, из них похожи на конечного получателя {int(df.truncated_candidate.sum())}")
     return df

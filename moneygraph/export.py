@@ -9,7 +9,7 @@ from . import clusters, priority
 NODE_COLS = ["gid", "role", "role_score", "cluster_id", "priority_score", "evidence"]
 EXTRA_COLS = ["depth", "is_seed", "in_deg", "out_deg", "in_kzt", "out_kzt", "in_tx", "out_tx",
               "pass_through", "truncated", "n_seed_src", "betweenness", "pagerank_w", "lag_days",
-              "fast_pass_share", "component_id", "in_cycle"]
+              "fast_pass_share", "component_id", "in_cycle", "terminal_likeness", "truncated_candidate"]
 
 
 def write(df: pd.DataFrame, edges: pd.DataFrame, out_dir: Path):

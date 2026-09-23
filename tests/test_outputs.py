@@ -45,6 +45,17 @@ def test_truncated_not_terminal(nodes):
         assert not ((nodes.truncated) & (nodes.role == "terminal")).any()
 
 
+def test_truncated_candidates(nodes):
+    """Обрезанных различаем по профилю входящих, но роль не меняем."""
+    t = nodes[nodes.truncated]
+    passes = (t.in_kzt >= 500_000) | (t.in_deg >= 2)          # те же пороги, что у конечного получателя
+    assert (t.truncated_candidate == passes).all()
+    assert not nodes[~nodes.truncated].truncated_candidate.any()
+    assert nodes.terminal_likeness.between(0, 1).all() and (nodes[~nodes.truncated].terminal_likeness == 0).all()
+    assert (t.role == "peripheral").all()
+    assert t[t.truncated_candidate].evidence.str.contains("запросить 5-е колено").all()
+
+
 def test_bursts_and_resilience():
     b = pd.read_csv(OUT / "bursts.csv")
     assert set(b.kind) <= {"pair_day", "fan_in_day"} and len(b) > 0

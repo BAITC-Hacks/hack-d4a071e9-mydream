@@ -35,6 +35,12 @@ def explain(gid: int, out_dir: Path = Path("output")) -> str:
         f"посредничество #{r.bt_rank}, в цикле: {'да' if r.in_cycle else 'нет'}",
         f"Приоритет за: {r.priority_drivers}",
     ]
+    if r.truncated:
+        lines.append(
+            f"Обрезан 4-м коленом: похожесть на конечного получателя {r.terminal_likeness:.2f} (сумма и число "
+            f"плательщиков против подтверждённых стоков колен 1–3); "
+            + ("проходит порог конечного получателя — запросить переводы 5-го колена"
+               if r.truncated_candidate else "ниже порога конечного получателя"))
     if e is not None:
         top_in = e[e.dst == gid].nlargest(3, "sum_kzt")
         top_out = e[e.src == gid].nlargest(3, "sum_kzt")
