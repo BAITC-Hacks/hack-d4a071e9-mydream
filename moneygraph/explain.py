@@ -26,7 +26,7 @@ def explain(gid: int, out_dir: Path = Path("output")) -> str:
         return f"gid {gid} не найден"
     r = row.iloc[0]
     lines = [
-        f"gid {gid}: {r.role.upper()} ({ROLE_RU[r.role]}), уверенность {r.role_score:.2f}, приоритет {r.priority_score:.2f}, кластер {r.cluster_id}",
+        f"gid {gid}: роль — {ROLE_RU[r.role].upper()}, уверенность {r.role_score:.2f}, приоритет {r.priority_score:.2f}, кластер {r.cluster_id}",
         f"Правило: {RULE_TEXT[r.role]}",
         f"Факты: {r.evidence}",
         f"Метрики: in {r.in_deg}/{r.in_kzt:,.0f} KZT, out {r.out_deg}/{r.out_kzt:,.0f} KZT, пропуск "

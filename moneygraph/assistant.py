@@ -95,7 +95,7 @@ def facts_text(fx: dict) -> str:
         return "В вопросе нет известных gid (нужны 15–20-значные номера из выборки)."
     lines = [f"Заданные узлы ({len(fx['gids'])}):"]
     for n in fx["nodes"]:
-        lines.append(f"- {n['gid']}: {n['role']} ({ROLE_RU[n['role']]}){', seed' if n['seed'] else ''}, "
+        lines.append(f"- {n['gid']}: {ROLE_RU[n['role']]}{', seed' if n['seed'] else ''}, "
                      f"приоритет {n['priority']:.2f}, кластер {n['cluster']}; {n['evidence']}")
     for key, title, amt in (("collectors", "Общие получатели (куда уходят деньги от ≥2 заданных)", "direct_kzt_from_them"),
                             ("payers", "Общие плательщики (кто платит ≥2 заданным)", "direct_kzt_to_them")):
@@ -103,7 +103,7 @@ def facts_text(fx: dict) -> str:
         if not fx[key]:
             lines.append("- не найдено")
         for c in fx[key]:
-            lines.append(f"- {c['gid']}: {c['role']} ({ROLE_RU[c['role']]}){', сам seed' if c['seed'] else ''}, связан с "
+            lines.append(f"- {c['gid']}: {ROLE_RU[c['role']]}{', сам seed' if c['seed'] else ''}, связан с "
                          f"{c['n_linked']} из {len(fx['gids'])} ({', '.join(str(x)[-6:] for x in c['linked'])}), "
                          f"{'напрямую' if c['max_hops'] == 1 else 'через ' + _plural(c['max_hops'], 'колено', 'колена', 'колен')}, "
                          f"прямые переводы {c[amt]:,.0f} KZT, приоритет {c['priority']:.2f}; {c['evidence']}")

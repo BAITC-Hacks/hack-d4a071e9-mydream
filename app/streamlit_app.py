@@ -25,6 +25,14 @@ CLUSTER_PALETTE = ["#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd", "#8c56
 st.set_page_config(page_title="Граф денег", layout="wide")
 
 
+def ru(text) -> str:
+    """Коды ролей в тексте из CSV (гипотезы кластеров) → русские названия; сами CSV не меняются."""
+    text = str(text)
+    for code, name in ROLE_RU.items():
+        text = text.replace(code, name)
+    return text
+
+
 @st.cache_data
 def load():
     if not (OUT / "features.parquet").exists():
@@ -34,7 +42,8 @@ def load():
     c = pd.read_csv(OUT / "clusters.csv")
     t = pd.read_csv(OUT / "top_nodes.csv")
     G = nx.from_pandas_edgelist(e, "src", "dst", ["sum_kzt", "n_tx"], create_using=nx.DiGraph)
-    b = pd.read_csv(OUT / "bursts.csv") if (OUT / "bursts.csv").exists() else None
+    b = (pd.read_csv(OUT / "bursts.csv", dtype={"src": "Int64", "dst": "Int64"})  # gid без потери цифр
+         if (OUT / "bursts.csv").exists() else None)
     rs = pd.read_csv(OUT / "resilience.csv") if (OUT / "resilience.csv").exists() else None
     n_tx = len(pd.read_parquet(DATA / "transactions.parquet", columns=["sum_kzt"]))
     return f, e, c, t, G, b, rs, n_tx
@@ -63,7 +72,7 @@ with st.sidebar:
     st.markdown("**Легенда**")
     if color_by == "роль":
         for r, col in COLORS.items():
-            st.markdown(f"<span style='color:{col}'>■</span> {r} — {ROLE_RU[r]}", unsafe_allow_html=True)
+            st.markdown(f"<span style='color:{col}'>■</span> {ROLE_RU[r]}", unsafe_allow_html=True)
     else:
         st.markdown("цвет = номер кластера; кластеры окрестности перечислены под схемой")
     st.markdown("◆ — seed; толщина стрелки — сумма")
@@ -98,8 +107,8 @@ def render_node():
     row = feat.loc[gid]
 
     # ---------------- карточка ----------------
-    c1, c2, c3, c4, c5 = st.columns(5)
-    c1.metric("Роль", row.role); c2.metric("Уверенность", f"{row.role_score:.2f}")
+    c1, c2, c3, c4, c5 = st.columns([2, 1, 1, 1, 1])
+    c1.metric("Роль", ROLE_RU[row.role]); c2.metric("Уверенность", f"{row.role_score:.2f}")
     c3.metric("Приоритет", f"{row.priority_score:.2f}"); c4.metric("Кластер", int(row.cluster_id))
     c5.metric("Колено", f"{int(row.depth)}{' (seed)' if row.is_seed else ''}")
     st.code(explain(gid, OUT), language=None)
@@ -113,7 +122,7 @@ def render_node():
     for n in sub.nodes:
         r = feat.loc[n] if n in feat.index else None
         role = r.role if r is not None else "peripheral"
-        title = (f"{n}\n{role} / приоритет {r.priority_score:.2f}\n{r.evidence}" if r is not None else str(n))
+        title = (f"{n}\n{ROLE_RU[role]} / приоритет {r.priority_score:.2f}\n{r.evidence}" if r is not None else str(n))
         color = (COLORS[role] if color_by == "роль" or r is None
                  else CLUSTER_PALETTE[int(r.cluster_id) % len(CLUSTER_PALETTE)])
         net.add_node(int(n), label=str(n)[-6:], title=title, color=color,
@@ -130,31 +139,38 @@ def render_node():
         in_view = feat.loc[[n for n in sub.nodes if n in feat.index]].cluster_id.value_counts()
         st.markdown("  \n".join(
             f"<span style='color:{CLUSTER_PALETTE[int(c) % len(CLUSTER_PALETTE)]}'>■</span> кластер {int(c)} — "
-            f"{k} узл. на схеме; {hyp.get(c, '')}" for c, k in in_view.items()), unsafe_allow_html=True)
+            f"{k} узл. на схеме; {ru(hyp.get(c, ''))}" for c, k in in_view.items()), unsafe_allow_html=True)
 
     # ---------------- связи ----------------
     l, r_ = st.columns(2)
     with l:
         st.markdown("**Входящие**")
         st.dataframe(edges[edges.dst == gid].sort_values("sum_kzt", ascending=False)
-                     .assign(role=lambda d: d.src.map(feat.role))[["src", "role", "sum_kzt", "n_tx"]],
+                     .assign(role=lambda d: d.src.map(feat.role).map(ROLE_RU))[["src", "role", "sum_kzt", "n_tx"]]
+                     .rename(columns={"src": "плательщик", "role": "роль", "sum_kzt": "сумма, KZT", "n_tx": "переводов"}),
                      hide_index=True, width="stretch")
     with r_:
         st.markdown("**Исходящие**")
         st.dataframe(edges[edges.src == gid].sort_values("sum_kzt", ascending=False)
-                     .assign(role=lambda d: d.dst.map(feat.role))[["dst", "role", "sum_kzt", "n_tx"]],
+                     .assign(role=lambda d: d.dst.map(feat.role).map(ROLE_RU))[["dst", "role", "sum_kzt", "n_tx"]]
+                     .rename(columns={"dst": "получатель", "role": "роль", "sum_kzt": "сумма, KZT", "n_tx": "переводов"}),
                      hide_index=True, width="stretch")
 
     # ---------------- топ-лист и кластеры ----------------
     st.subheader("Топ приоритетов")
-    role_f = st.multiselect("Роль", list(COLORS), default=list(COLORS))
-    st.dataframe(top[top.role.isin(role_f)], hide_index=True, width="stretch")
+    role_f = st.multiselect("Роль", list(COLORS), default=list(COLORS), format_func=ROLE_RU.get)
+    st.dataframe(top[top.role.isin(role_f)].assign(role=lambda d: d.role.map(ROLE_RU)).rename(columns={
+        "rank": "место", "role": "роль", "priority_score": "приоритет", "why": "почему",
+        "cluster_id": "кластер", "role_score": "уверенность"}), hide_index=True, width="stretch")
 
     st.subheader("Кластеры")
-    st.dataframe(clusters.sort_values("n_nodes", ascending=False), hide_index=True, width="stretch")
+    st.dataframe(clusters.sort_values("n_nodes", ascending=False).assign(hypothesis=lambda d: d.hypothesis.map(ru))
+                 .rename(columns={"cluster_id": "кластер", "n_nodes": "узлов", "n_seed": "seed",
+                                  "sum_kzt_internal": "внутренний оборот, KZT", "top_gids": "топ-5 gid",
+                                  "hypothesis": "гипотеза"}), hide_index=True, width="stretch")
 
     st.subheader("Распределение ролей")
-    st.bar_chart(feat.role.value_counts())
+    st.bar_chart(feat.role.map(ROLE_RU).value_counts(), horizontal=True)
 
 
 with tab_node:
@@ -170,17 +186,18 @@ with tab_rules:
     order = ["coordinator", "consolidator", "distributor", "transit", "terminal", "peripheral"]
     st.dataframe(pd.DataFrame({
         "№": range(1, len(order) + 1),
-        "Роль": order,
-        "По-русски": [ROLE_RU[r] for r in order],
+        "Роль": [ROLE_RU[r] for r in order],
+        "Код в CSV": order,
         "Правило и порог": [RULE_TEXT[r] for r in order],
         "Узлов": [int(counts.get(r, 0)) for r in order],
         "Пример (макс. приоритет)": [str(example.get(r, "")) for r in order],
     }), hide_index=True, width="stretch")
     st.markdown(
-        "**Ограничения правил.** seed не бывает consolidator, transit и terminal: входящие seed занижены выгрузкой. "
-        "Узел, обрезанный 4-м коленом (`truncated`), никогда не terminal — его исходящие неизвестны. "
-        "`role_score` 0–1 — насколько превышен порог своего правила; у peripheral всегда "
-        f"{C.PERIPHERAL_SCORE}.")
+        "**Ограничения правил.** seed не бывает точкой консолидации, транзитом и конечным получателем: "
+        "входящие seed занижены выгрузкой. Узел, обрезанный 4-м коленом (`truncated`), никогда не конечный "
+        "получатель — его исходящие неизвестны. "
+        "`role_score` 0–1 — насколько превышен порог своего правила; у периферии всегда "
+        f"{C.PERIPHERAL_SCORE}. В CSV роли записаны кодами из словаря ТЗ (колонка «Код в CSV»).")
     st.markdown("**Приоритет** — взвешенная сумма рангов, нормированная 0–1:")
     st.code(" + ".join(f"{w:.2f}·{k}" for k, w in C.PRIORITY_WEIGHTS.items())
             + f"\n× {C.TRUNCATED_PENALTY} для обрезанных, × {C.SEED_PENALTY} для seed (уже известны следствию)",
@@ -202,8 +219,15 @@ with tab_burst:
         m3.metric("Сумма эпизодов, KZT", f"{bursts.sum_kzt.sum():,.0f}")
         kinds = {"pair_day": "одна пара, один день", "fan_in_day": "сбор за день"}
         pick = st.multiselect("Тип", list(kinds), default=list(kinds), format_func=kinds.get)
-        view = bursts[bursts.kind.isin(pick)].assign(kind=lambda d: d.kind.map(kinds))
-        st.dataframe(view.astype({"src": "string", "dst": "string"}), hide_index=True, width="stretch")
+        view = bursts[bursts.kind.isin(pick)].assign(kind=lambda d: d.kind.map(kinds),
+                                                     src_role=lambda d: d.src_role.map(ROLE_RU),
+                                                     dst_role=lambda d: d.dst_role.map(ROLE_RU))
+        st.dataframe(view.astype({"src": "string", "dst": "string"})
+                     .fillna({"src": "несколько", "src_role": "—"}).rename(columns={
+            "kind": "тип", "date": "дата", "src": "отправитель", "dst": "получатель", "n_tx": "переводов",
+            "n_payers": "плательщиков", "sum_kzt": "сумма, KZT", "max_kzt": "крупнейший, KZT",
+            "src_role": "роль отправителя", "dst_role": "роль получателя", "dst_cluster": "кластер получателя",
+            "note": "описание"}), hide_index=True, width="stretch")
         st.caption("gid из таблицы можно вставить в поиск слева — откроется его окрестность на вкладке «Узел».")
 
 # ---------------- устойчивость ----------------
@@ -275,7 +299,7 @@ with tab_scheme:
                    "обход до 4-го колена"),
         ("Метрики", "степени и суммы, доля пропуска, лаг и скорость пересылки, betweenness, PageRank, HITS, "
                     "циклы, дробление за день"),
-        ("Роли", "6 правил с порогами из config.py: " + ", ".join(f"{r} {int(rc.get(r, 0))}" for r in
+        ("Роли", "6 правил с порогами из config.py: " + ", ".join(f"{ROLE_RU[r]} {int(rc.get(r, 0))}" for r in
                  ["coordinator", "consolidator", "distributor", "transit", "terminal", "peripheral"])),
         ("Кластеры и приоритет", f"Louvain (seed {C.LOUVAIN_SEED}): {len(clusters)} кластеров; приоритет — "
                                  f"взвешенные ранги, топ-{C.TOP_N} с объяснением «почему»"),
@@ -309,15 +333,15 @@ with tab_demo:
     plan = [
         ("0:00–0:30", "Задача и данные", f"{len(feat):,} узлов, {int(feat.is_seed.sum())} seed. Вкладка «Схема решения»."),
         ("0:30–1:00", "Живой прогон", "`run_offline.bat run` — ≈4 с, 3 CSV, проверка схемы OK."),
-        ("1:00–2:00", "Топ-1: консолидатор", f"gid **{cons.gid}** в поиск → схема окрестности, крупнейшие плательщики."),
+        ("1:00–2:00", "Топ-1: точка консолидации", f"gid **{cons.gid}** в поиск → схема окрестности, крупнейшие плательщики."),
     ]
     if len(coord):
         cr = coord.iloc[0]
         plan.append(("2:00–2:40", "Координатор", f"gid **{cr.gid}**: связывает {int(cr.n_adj_clusters)} кластеров, "
-                     f"посредничество #{int(cr.bt_rank)} — почему это не distributor."))
+                     f"посредничество #{int(cr.bt_rank)} — почему это не распределитель."))
     if len(trunc):
         plan.append(("2:40–3:10", "Ловушка данных", f"gid **{trunc.iloc[0].gid}** с 4-го колена: получил "
-                     f"{trunc.iloc[0].in_kzt:,.0f} KZT, но не terminal — исходящие неизвестны."))
+                     f"{trunc.iloc[0].in_kzt:,.0f} KZT, но не конечный получатель — исходящие неизвестны."))
     plan.append(("3:10–3:50", "Дробление и устойчивость",
                  (f"крупнейший эпизод: {b0.note}. " if b0 is not None else "")
                  + (f"Топ-{C.TOP_N} по приоритету отсекают {1 - flow:.0%} потока от seed." if flow is not None else "")))
