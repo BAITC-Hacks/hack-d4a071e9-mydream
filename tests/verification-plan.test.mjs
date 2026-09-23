@@ -4,8 +4,9 @@ import { verificationPlan } from '../src/app.js';
 
 test('план проверки показывает недостающие данные для любого выбранного узла', () => {
   const plan = verificationPlan({ gid: '123', depth: 2, is_seed: false, in_deg: 3, out_deg: 2 });
-  assert.deepEqual(plan.map((item) => item.key), ['fullFlow', 'timing', 'identity', 'caseContext']);
+  assert.deepEqual(plan.map((item) => item.key), ['fullFlow', 'timing', 'operationType', 'validation']);
   assert.ok(plan.every((item) => item.required && item.purpose));
+  assert.doesNotMatch(JSON.stringify(plan), /KYC|ФИО|ИИН|бенефициар|межбанковск/i);
 });
 
 test('план выделяет границы выборки для исходного клиента и четвёртого колена', () => {

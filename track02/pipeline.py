@@ -23,7 +23,6 @@ import duckdb
 import networkx as nx
 import numpy as np
 import pandas as pd
-from sklearn.ensemble import IsolationForest
 
 
 ROLES = {"consolidator", "transit", "distributor", "terminal", "coordinator", "peripheral"}
@@ -39,7 +38,7 @@ ROLE_COLUMNS = [
     "gid", "role", "role_score", "cluster_id", "priority_score", "evidence",
     "in_deg", "out_deg", "in_kzt", "out_kzt", "in_tx", "out_tx",
     "pagerank", "betweenness", "pass_through", "depth", "is_seed",
-    "truncated_by_depth", "active_days", "anomaly_score", "data_quality",
+    "truncated_by_depth", "active_days", "data_quality",
 ]
 CLUSTER_COLUMNS = ["cluster_id", "n_nodes", "n_seed", "sum_kzt_internal", "top_gids", "hypothesis"]
 TOP_COLUMNS = ["rank", "gid", "role", "priority_score", "why"]
@@ -170,24 +169,6 @@ def node_features(nodes: pd.DataFrame, tx: pd.DataFrame, graph: nx.DiGraph) -> p
     return features
 
 
-def anomaly_scores(features: pd.DataFrame) -> pd.Series:
-    """Unsupervised, deterministic review signal; no fraud labels are used."""
-    if len(features) < 3:
-        return pd.Series(np.zeros(len(features)), index=features.index)
-    columns = [
-        "in_deg", "out_deg", "in_kzt", "out_kzt", "in_tx", "out_tx",
-        "betweenness", "active_days",
-    ]
-    matrix = np.log1p(features[columns].astype(float))
-    matrix = matrix.rank(pct=True).to_numpy()
-    model = IsolationForest(
-        n_estimators=100, max_samples=min(256, len(features)),
-        contamination="auto", random_state=42, n_jobs=1,
-    )
-    unusual = -model.fit(matrix).score_samples(matrix)
-    return pd.Series(unusual, index=features.index).rank(pct=True)
-
-
 def role_hypothesis(row: pd.Series, bridge_cutoff: float, bridge_rank: float) -> tuple[str, float]:
     """Mutually exclusive, ordered graph-pattern rules."""
     in_deg, out_deg = int(row.in_deg), int(row.out_deg)
@@ -212,23 +193,26 @@ def role_hypothesis(row: pd.Series, bridge_cutoff: float, bridge_rank: float) ->
 
 
 def evidence_text(row: pd.Series) -> str:
-    """Concise numeric explanation with the relevant observation limit."""
+    """State the exact role rule, observed metrics, and observation limit."""
+    rule = {
+        "coordinator": "≥2 входа и выхода, посредничество в верхних 10%",
+        "consolidator": "3 входа или больше, входящих ≥1,5× исходящих",
+        "distributor": "≥3 выхода, seed или исходящих ≥1,5× входящих",
+        "transit": "есть вход и выход, отношение сумм 0,5–2",
+        "terminal": "есть вход, выхода нет в пределах обхода",
+        "peripheral": "пороги других ролей не выполнены",
+    }[row.role]
+    if row.truncated_by_depth:
+        rule = "глубина 4; продолжение вне обхода неизвестно"
+    elif row.in_deg == 0 and row.out_deg == 0:
+        rule = "наблюдаемых связей нет"
     facts = (
         f"вход {int(row.in_deg)} / {row.in_kzt:,.0f} KZT; "
         f"выход {int(row.out_deg)} / {row.out_kzt:,.0f} KZT; "
-        f"tx {int(row.in_tx)}/{int(row.out_tx)}; дней {int(row.active_days)}"
+        f"операций {int(row.in_tx)}/{int(row.out_tx)}; дней {int(row.active_days)}"
     )
-    if row.truncated_by_depth:
-        prefix = "Глубина 4: исходящие вне обхода неизвестны; "
-    elif row.is_seed:
-        prefix = "Seed: вход извне выборки неполон; "
-    elif row.role == "coordinator":
-        prefix = f"Мост {row.betweenness:.4f}; "
-    elif row.role == "transit":
-        prefix = f"Набл. выход/вход {row.pass_through:.2f}; "
-    else:
-        prefix = ""
-    return (prefix + facts)[:200]
+    limit = "; seed: вход неполон" if row.is_seed else ""
+    return f"Правило: {rule}; {facts}{limit}"[:200]
 
 
 def assign_clusters(graph: nx.DiGraph) -> dict[int, int]:
@@ -266,11 +250,10 @@ def cluster_hypothesis(group: pd.DataFrame) -> str:
 def analyze(
     nodes: pd.DataFrame, edges: pd.DataFrame, tx: pd.DataFrame
 ) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, dict]:
-    """Run role, anomaly, data-gap, and priority stages in that order."""
+    """Run role, data-gap, and interpretable priority stages in that order."""
     validate_data(nodes, edges, tx)
     graph = build_graph(nodes, edges)
     roles = node_features(nodes, tx, graph)
-    roles["anomaly_score"] = anomaly_scores(roles)
     bridge_rank = roles.betweenness.rank(pct=True)
     eligible = roles.loc[(roles.in_deg >= 2) & (roles.out_deg >= 2) & (roles.betweenness > 0), "betweenness"]
     bridge_cutoff = float(eligible.quantile(0.9)) if not eligible.empty else float("inf")
@@ -294,11 +277,10 @@ def analyze(
     activity = ((roles.in_tx + roles.out_tx).rank(pct=True) + roles.active_days.rank(pct=True)) / 2
     role_value = roles.role_score * roles.role.map(ROLE_WEIGHT)
     priority_components = {
-        "role": 0.23 * role_value,
-        "anomaly": 0.22 * roles.anomaly_score,
-        "volume": 0.20 * volume,
-        "degree": 0.15 * degree,
-        "bridge": 0.10 * bridge_rank,
+        "role": 0.30 * role_value,
+        "volume": 0.25 * volume,
+        "degree": 0.20 * degree,
+        "bridge": 0.15 * bridge_rank,
         "activity": 0.10 * activity,
     }
     raw_priority = sum(priority_components.values())
@@ -314,7 +296,6 @@ def analyze(
         for index in range(len(roles))
     ]
     roles["role_score"] = roles.role_score.round(6)
-    roles["anomaly_score"] = roles.anomaly_score.round(6)
     roles["data_quality"] = roles.data_quality.round(6)
 
     cluster_map = assign_clusters(graph)
@@ -341,13 +322,13 @@ def analyze(
 
     top = roles.sort_values(["priority_score", "gid"], ascending=[False, True]).head(50).copy()
     top.insert(0, "rank", range(1, len(top) + 1))
-    top["why"] = top.evidence + "; необычность " + top.anomaly_score.map(lambda score: f"{score:.2f}")
+    top["why"] = top.evidence
     top = top[TOP_COLUMNS]
 
     node_columns = [
         "gid", "role", "role_score", "priority_score", "cluster_id", "is_seed",
         "depth", "in_deg", "out_deg", "in_kzt", "out_kzt", "evidence",
-        "in_tx", "out_tx", "anomaly_score", "data_quality", "truncated_by_depth",
+        "in_tx", "out_tx", "data_quality", "truncated_by_depth",
     ]
     # GIDs exceed IEEE-754's safe integer range; JSON uses strings so browser
     # graph joins cannot silently merge or round distinct client identifiers.
@@ -370,7 +351,7 @@ def analyze(
             "n_clusters": int(len(clusters)), "total_kzt": float(edges.sum_kzt.sum()),
             "n_depth4_censored": int(roles.truncated_by_depth.sum()),
             "n_orphan_seeds": int(((roles.in_deg + roles.out_deg == 0) & roles.is_seed).sum()),
-            "anomaly_method": "IsolationForest on ranked log graph and activity features; no labels",
+            "ranking_method": "Weighted interpretable graph metrics with observation-quality discount",
             "cluster_method": "Louvain on log-weighted undirected projection",
             "scope": "July 2026, outgoing-only crawl, >=5000 KZT, max depth 4",
             "runtime_sec": 0.0,

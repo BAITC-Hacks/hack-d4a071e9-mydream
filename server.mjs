@@ -12,6 +12,7 @@ const staticFiles = new Map([
   ['/', ['index.html', 'text/html; charset=utf-8']],
   ['/styles.css', ['styles.css', 'text/css; charset=utf-8']],
   ['/src/app.js', ['src/app.js', 'text/javascript; charset=utf-8']],
+  ['/src/graph-layout.mjs', ['src/graph-layout.mjs', 'text/javascript; charset=utf-8']],
 ]);
 const exportNames = new Set(['nodes_roles.csv', 'clusters.csv', 'top_nodes.csv']);
 let rebuildPromise = null;
@@ -69,7 +70,7 @@ createServer(async (request, response) => {
       return sendJson(response, 200, { track: '02', dataReady, outputReady: await fileExists(networkPath), rebuilding: Boolean(rebuildPromise) });
     }
     if (request.method === 'GET' && pathname === '/api/network') {
-      if (!await fileExists(networkPath)) return sendJson(response, 404, { error: 'Расчёт ещё не выполнен. Нажмите «Пересчитать граф».' });
+      if (!await fileExists(networkPath)) return sendJson(response, 404, { error: 'Расчёт ещё не выполнен. Нажмите «Пересчитать модель».' });
       const network = JSON.parse(await readFile(networkPath, 'utf8'));
       return sendJson(response, 200, network);
     }

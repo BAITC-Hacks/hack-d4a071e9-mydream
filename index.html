@@ -44,8 +44,8 @@
       <section class="workspace" aria-label="Исследование графа">
         <div class="graph-panel panel">
           <div class="panel-heading graph-heading">
-            <div><p class="eyebrow">01 / ИССЛЕДОВАНИЕ</p><h2>Карта переводов</h2><p id="graphCaption">Все узлы и направленные связи в выборке.</p></div>
-            <div class="graph-tools"><button class="view-tab active" id="overviewButton" type="button" aria-pressed="true">Вся сеть</button><button class="view-tab" id="egoButton" type="button" aria-pressed="false">Связи узла</button></div>
+            <div><p class="eyebrow">01 / ИССЛЕДОВАНИЕ</p><h2>Карта переводов</h2><p id="graphCaption">Кластеры наблюдаемой сети. Нажмите группу для просмотра её опорных узлов.</p></div>
+            <div class="graph-tools"><button class="view-tab active" id="overviewButton" type="button" aria-pressed="true">Кластеры</button><button class="view-tab" id="egoButton" type="button" aria-pressed="false">Связи узла</button></div>
           </div>
           <div class="search-row">
             <label for="gidSearch" class="sr-only">Поиск клиента по gid</label>
@@ -54,8 +54,8 @@
           </div>
           <div id="searchSuggestions" class="search-suggestions" hidden aria-label="Найденные gid"></div>
           <div id="graphEmpty" class="graph-empty" hidden>В полученном наборе нет узлов для отображения.</div>
-          <div class="graph-stage" id="graphStage"><canvas id="graphCanvas" role="img" aria-label="Направленный граф переводов. Для поиска узла используйте поле gid."></canvas><div id="graphTooltip" class="graph-tooltip" hidden></div><span class="graph-watermark">SRC <span>→</span> DST</span></div>
-          <div class="graph-bottom"><div id="graphScale" class="graph-scale">Узлы и связи отображаются из выгрузки</div><div class="legend" aria-label="Цвета ролей"><span><i class="role-dot role-consolidator"></i>Сбор</span><span><i class="role-dot role-transit"></i>Транзит</span><span><i class="role-dot role-distributor"></i>Раздача</span><span><i class="role-dot role-terminal"></i>Конечный*</span><span><i class="role-dot role-coordinator"></i>Координация</span><span><i class="role-dot role-peripheral"></i>Периферия</span></div></div>
+          <div class="graph-stage" id="graphStage"><canvas id="graphCanvas" role="img" aria-label="Направленный граф переводов. Для поиска узла используйте поле gid."></canvas><div id="graphTooltip" class="graph-tooltip" hidden></div><span class="graph-watermark" id="graphWatermark">SRC <span>→</span> DST</span></div>
+          <div class="graph-bottom"><div id="graphScale" class="graph-scale">Узлы и связи отображаются из выгрузки</div><div class="legend" id="graphLegend" aria-label="Цвета ролей"><span><i class="role-dot role-consolidator"></i>Сбор</span><span><i class="role-dot role-transit"></i>Транзит</span><span><i class="role-dot role-distributor"></i>Раздача</span><span><i class="role-dot role-terminal"></i>Конечный*</span><span><i class="role-dot role-coordinator"></i>Координация</span><span><i class="role-dot role-peripheral"></i>Периферия</span></div></div>
         </div>
 
         <aside class="detail-panel panel" aria-labelledby="detailTitle">

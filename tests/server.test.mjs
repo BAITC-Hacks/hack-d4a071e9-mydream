@@ -57,6 +57,10 @@ test('локальный сервер выдаёт приложение и ст�
   assert.match(page.headers.get('content-type'), /text\/html/);
   assert.match(await page.text(), /Граф денег/);
 
+  const layoutModule = await fetch(url + '/src/graph-layout.mjs');
+  assert.equal(layoutModule.status, 200);
+  assert.match(layoutModule.headers.get('content-type'), /javascript/);
+  assert.match(await layoutModule.text(), /clusterGrid/);
   const unknown = await fetch(`${url}/api/export/unknown.csv`);
   assert.equal(unknown.status, 404);
 });

@@ -65,13 +65,16 @@ class PipelineAnalysisTests(unittest.TestCase):
         self.assertTrue(roles.role_score.between(0, 1).all())
         self.assertTrue(roles.priority_score.between(0, 1).all())
         self.assertTrue(roles.evidence.str.len().le(200).all())
+        self.assertTrue(roles.evidence.str.startswith("Правило:").all())
+        self.assertIn("3 вход", by_gid.loc[7, "evidence"])
         self.assertEqual(sum(cluster["n_nodes"] for cluster in network["clusters"]), len(nodes))
         self.assertEqual(len(network["edges"]), len(edges))
         self.assertEqual(len(top), len(nodes))
         for item in network["nodes"]:
             factors = item["priority_factors"]
+            self.assertNotIn("anomaly", factors)
             positive = sum(factors[name] for name in (
-                "role", "anomaly", "volume", "degree", "bridge", "activity"
+                "role", "volume", "degree", "bridge", "activity"
             ))
             self.assertAlmostEqual(
                 positive - factors["data_quality_penalty"],
