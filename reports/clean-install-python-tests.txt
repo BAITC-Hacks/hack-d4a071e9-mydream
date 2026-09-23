@@ -1,0 +1,45 @@
+Full raw-Parquet CLI runs (seconds): 1.594, 1.672
+
+test_depth_four_leaf_uses_reference_share_of_traced_recipients (boundary_assessment_test.BoundaryAssessmentTests.test_depth_four_leaf_uses_reference_share_of_traced_recipients) ... ok
+test_full_node_export_keeps_large_ids_and_each_transaction (node_detail_pipeline_test.NodeDetailPipelineTests.test_full_node_export_keeps_large_ids_and_each_transaction) ... ok
+test_burst_uses_at_least_three_active_days (optional_analysis_test.OptionalAnalysisTests.test_burst_uses_at_least_three_active_days) ... ok
+test_depth_profile_needs_thirty_peers_and_flags_the_large_recipient (optional_analysis_test.OptionalAnalysisTests.test_depth_profile_needs_thirty_peers_and_flags_the_large_recipient) ... ok
+test_removing_the_top_star_hub_separates_all_leaves (optional_analysis_test.OptionalAnalysisTests.test_removing_the_top_star_hub_separates_all_leaves) ... ok
+test_small_transfer_group_survives_a_large_transfer_on_the_same_day (optional_analysis_test.OptionalAnalysisTests.test_small_transfer_group_survives_a_large_transfer_on_the_same_day) ... ok
+test_small_transfers_are_counted_within_one_recipient_and_day (optional_analysis_test.OptionalAnalysisTests.test_small_transfers_are_counted_within_one_recipient_and_day) ... ok
+test_synchronous_payers_require_three_distinct_senders (optional_analysis_test.OptionalAnalysisTests.test_synchronous_payers_require_three_distinct_senders) ... ok
+test_temporal_routes_cycles_and_resilience_are_explained (optional_analysis_test.OptionalAnalysisTests.test_temporal_routes_cycles_and_resilience_are_explained) ... ok
+test_transit_window_includes_day_two_but_not_day_three_or_earlier (optional_analysis_test.OptionalAnalysisTests.test_transit_window_includes_day_two_but_not_day_three_or_earlier) ... ok
+test_directed_roles_respect_censoring_seed_and_orphan (pipeline_analysis_test.PipelineAnalysisTests.test_directed_roles_respect_censoring_seed_and_orphan) ... ok
+test_run_writes_contract_files_from_raw_parquet (pipeline_analysis_test.PipelineAnalysisTests.test_run_writes_contract_files_from_raw_parquet) ... ok
+test_boundary_terminal_evidence_acknowledges_incomplete_observation (spec_compliance_test.OrganizerComplianceTests.test_boundary_terminal_evidence_acknowledges_incomplete_observation)
+A depth-4 terminal hypothesis must carry uncertainty, not an observed full balance. ... ok
+test_clusters_cover_nodes_and_reconcile_raw_internal_flows (spec_compliance_test.OrganizerComplianceTests.test_clusters_cover_nodes_and_reconcile_raw_internal_flows)
+Catch missing groups, wrong membership/seed counts, and external flows counted internally. ... ok
+test_csv_schemas_and_required_values (spec_compliance_test.OrganizerComplianceTests.test_csv_schemas_and_required_values)
+Catch removed, renamed, extra, empty, or null submission fields. ... ok
+test_input_edges_reconcile_with_raw_transactions (spec_compliance_test.OrganizerComplianceTests.test_input_edges_reconcile_with_raw_transactions)
+Catch a reversed pair, missing transaction, or wrong aggregate. ... ok
+test_input_identity_counts_and_graph_endpoints (spec_compliance_test.OrganizerComplianceTests.test_input_identity_counts_and_graph_endpoints)
+Catch a substituted, truncated, duplicated, or ID-corrupted input. ... ok
+test_input_seed_observation_limits (spec_compliance_test.OrganizerComplianceTests.test_input_seed_observation_limits)
+Catch accidental omission of isolated and receiver-only seeds. ... ok
+test_input_transaction_period_threshold_and_total (spec_compliance_test.OrganizerComplianceTests.test_input_transaction_period_threshold_and_total)
+Catch transactions outside the supplied observation window or amount scope. ... ok
+test_input_weak_components_keep_smaller_networks_and_isolated_seeds (spec_compliance_test.OrganizerComplianceTests.test_input_weak_components_keep_smaller_networks_and_isolated_seeds)
+Catch a missing smaller component or isolate despite an intact main graph. ... ok
+test_node_roles_preserve_all_ids_and_have_bounded_explanations (spec_compliance_test.OrganizerComplianceTests.test_node_roles_preserve_all_ids_and_have_bounded_explanations)
+Catch node loss, float-rounded IDs, invalid labels, and unusable scores. ... ok
+test_repeated_runs_are_byte_identical_and_finish_within_budget (spec_compliance_test.OrganizerComplianceTests.test_repeated_runs_are_byte_identical_and_finish_within_budget)
+Catch nondeterminism across fresh processes and excessive end-to-end runtime. ... ok
+test_saved_deliverables_exist_and_match_fresh_outputs (spec_compliance_test.OrganizerComplianceTests.test_saved_deliverables_exist_and_match_fresh_outputs)
+Catch missing or stale mandatory submission CSVs. ... ok
+test_top_nodes_are_valid_sorted_and_consistent_with_roles (spec_compliance_test.OrganizerComplianceTests.test_top_nodes_are_valid_sorted_and_consistent_with_roles)
+Catch too short a queue, duplicates, wrong ordering, or stale role/score copies. ... ok
+test_generated_graph_exercises_the_main_roles_and_crawl_limit (synthetic_data_test.SyntheticDataTests.test_generated_graph_exercises_the_main_roles_and_crawl_limit) ... ok
+
+----------------------------------------------------------------------
+Ran 25 tests in 7.048s
+
+OK
+

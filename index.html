@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#0b1019" />
+  <meta name="description" content="Локальный аналитический экран графа обезличенных банковских переводов." />
+  <title>Граф денег · AML-анализ</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="shell topbar-inner">
+      <a class="brand" href="#top" aria-label="Граф денег — к началу страницы"><span class="brand-mark" aria-hidden="true">◎</span><span>Граф <b>денег</b></span></a>
+      <span class="topbar-context">HACKALEM AI <span class="topbar-separator">/</span> AML-АНАЛИТИКА</span>
+      <span class="local-badge"><span class="status-dot"></span> Локальный контур</span>
+    </div>
+  </header>
+
+  <main class="shell" id="top">
+    <section class="intro" aria-labelledby="pageTitle">
+      <div>
+        <p class="eyebrow">ОБЗОР ТРАНЗАКЦИОННОЙ СЕТИ <span class="eyebrow-line"></span> ИЮЛЬ 2026</p>
+        <h1 id="pageTitle">Анализ транзакционной сети</h1>
+        <p class="intro-copy">Роли клиентов, направления переводов и приоритеты проверки на основе обезличенной выгрузки.</p>
+      </div>
+      <div class="intro-action">
+        <span class="run-label">ПАКЕТНЫЙ АНАЛИЗ</span>
+        <button class="button button-primary" id="rebuildButton" type="button">Пересчитать модель <span aria-hidden="true">↗</span></button>
+        <span id="runMeta" class="run-meta">Данные загружаются…</span>
+      </div>
+    </section>
+
+    <div id="notice" class="notice" role="status" aria-live="polite"></div>
+
+    <section id="dashboard" hidden>
+      <div class="metrics" aria-label="Сводка сети">
+        <article class="metric"><span class="metric-label">УЗЛЫ В ГРАФЕ</span><strong id="nodesMetric">—</strong><span class="metric-foot">клиенты по gid</span></article>
+        <article class="metric"><span class="metric-label">НАПРАВЛЕННЫЕ СВЯЗИ</span><strong id="edgesMetric">—</strong><span class="metric-foot">плательщик → получатель</span></article>
+        <article class="metric"><span class="metric-label">ИСХОДНЫЕ КЛИЕНТЫ</span><strong id="seedsMetric">—</strong><span class="metric-foot">от них построена выборка</span></article>
+        <article class="metric metric-accent"><span class="metric-label">ГРУППЫ СВЯЗЕЙ</span><strong id="clustersMetric">—</strong><span class="metric-foot">гипотезы по кластерам</span></article>
+      </div>
+
+      <section class="workspace" aria-label="Исследование графа">
+        <div class="graph-panel panel">
+          <div class="panel-heading graph-heading">
+            <div><p class="eyebrow">01 / ИССЛЕДОВАНИЕ</p><h2>Карта переводов</h2><p id="graphCaption">Кластеры наблюдаемой сети. Нажмите группу для просмотра её опорных узлов.</p></div>
+            <div class="graph-tools"><button class="view-tab active" id="overviewButton" type="button" aria-pressed="true">Кластеры</button><button class="view-tab" id="egoButton" type="button" aria-pressed="false">Связи узла</button></div>
+          </div>
+          <div class="search-row">
+            <label for="gidSearch" class="sr-only">Поиск клиента по gid</label>
+            <div class="search-control"><span aria-hidden="true">⌕</span><input id="gidSearch" type="search" inputmode="numeric" autocomplete="off" placeholder="Введите любой gid, включая узел без связей" /><button id="searchButton" type="button">Найти →</button></div>
+            <button id="clearFocusButton" class="subtle-button" type="button" hidden>Сбросить фокус</button>
+          </div>
+          <div id="searchSuggestions" class="search-suggestions" hidden aria-label="Найденные gid"></div>
+          <div id="graphEmpty" class="graph-empty" hidden>В полученном наборе нет узлов для отображения.</div>
+          <div class="graph-stage" id="graphStage"><canvas id="graphCanvas" role="img" aria-label="Направленный граф переводов. Для поиска узла используйте поле gid."></canvas><div id="graphTooltip" class="graph-tooltip" hidden></div><span class="graph-watermark" id="graphWatermark">SRC <span>→</span> DST</span></div>
+          <div class="graph-bottom"><div id="graphScale" class="graph-scale">Узлы и связи отображаются из выгрузки</div><div class="legend" id="graphLegend" aria-label="Цвета ролей"><span><i class="role-dot role-consolidator"></i>Сбор</span><span><i class="role-dot role-transit"></i>Транзит</span><span><i class="role-dot role-distributor"></i>Раздача</span><span><i class="role-dot role-terminal"></i>Конечный*</span><span><i class="role-dot role-coordinator"></i>Координация</span><span><i class="role-dot role-peripheral"></i>Периферия</span></div></div>
+        </div>
+
+        <aside class="detail-panel panel" id="detailPanel" tabindex="-1" aria-labelledby="detailTitle">
+          <div class="detail-header"><p class="eyebrow">02 / КАРТОЧКА УЗЛА</p><span id="detailIndex" class="small-tag">—</span></div>
+          <div id="detailContent"><div class="detail-placeholder">Выберите узел на карте, в топ-листе или найдите его по gid.</div></div>
+        </aside>
+      </section>
+
+      <section class="panel graph-analysis" aria-labelledby="graphAnalysisTitle">
+        <div class="panel-heading analysis-heading">
+          <div><p class="eyebrow">АНАЛИТИКА ПО КАРТЕ</p><h2 id="graphAnalysisTitle">Почему эти узлы в приоритете</h2><p id="graphAnalysisScope">Обзор топ-10 по всей наблюдаемой сети</p></div>
+          <span class="analysis-provider">OpenAI API · GPT-6 Sol</span>
+        </div>
+        <div class="analysis-content">
+          <p class="analysis-disclosure">Сводка формируется автоматически через внешний API по обезличенному фрагменту графа и рассчитанным показателям.</p>
+          <p id="graphAnalysisStatus" class="analysis-status" role="status">Подготовка контекста…</p>
+          <div id="graphAnalysisBody" class="analysis-body" tabindex="0" role="region" aria-label="Аналитика по текущему виду графа" aria-busy="false"></div>
+          <button id="graphAnalysisRetry" class="subtle-button analysis-retry" type="button" hidden>Повторить запрос к Sol →</button>
+          <p class="analysis-limit">Выводы — гипотезы для проверки. Модель поясняет расчёт и не меняет роли или очередь проверки.</p>
+        </div>
+      </section>
+
+      <section class="lower-grid">
+        <div class="panel ranking-panel" id="ranking"><div class="panel-heading"><div><p class="eyebrow">03 / ОЧЕРЕДЬ ПРОВЕРКИ</p><h2>Приоритеты аналитика</h2><p>Ранжирование для проверки, а не вывод о причастности.</p></div><span id="topCount" class="count-pill">—</span></div><div class="table-wrap"><table><thead><tr><th>№</th><th>GID</th><th>Гипотеза о роли</th><th>Приоритет</th><th>Основание</th></tr></thead><tbody id="topBody"></tbody></table></div></div>
+        <div class="panel clusters-panel" id="clusters"><div class="panel-heading"><div><p class="eyebrow">04 / СТРУКТУРА</p><h2>Кластеры</h2><p>Группы связей и гипотезы для проверки.</p></div><span id="clusterCount" class="count-pill">—</span></div><div id="clusterList" class="cluster-list"></div></div>
+      </section>
+
+      <section class="optional-grid" aria-label="Дополнительный анализ">
+        <div class="panel optional-panel"><div class="panel-heading"><div><p class="eyebrow">05 / СТРУКТУРА СЕТИ</p><h2>Маршруты и устойчивость</h2><p>Повторяющиеся пути, возвратные контуры и сценарий удаления узлов.</p></div></div><div id="optionalOverview" class="optional-content"></div></div>
+        <div class="panel assistant-panel"><div class="panel-heading"><div><p class="eyebrow">06 / ВОПРОС К ГРАФУ</p><h2>Помощник аналитика · GPT-6 Sol</h2><p>Вопрос и связанный фрагмент обезличенного графа отправляются во внешний OpenAI API. Ответ содержит ссылки на GID из выгрузки.</p></div></div><div class="assistant-content"><p id="assistantStatus" class="assistant-status" role="status">Проверяем подключение OpenAI API…</p><label for="assistantQuestion">Спросите о точке сбора, маршруте, цикле или устойчивости</label><textarea id="assistantQuestion" rows="3" maxlength="2000" placeholder="Кто собирает деньги с GID1 и GID2?"></textarea><button class="button button-primary" id="assistantAsk" type="button">Спросить GPT-6 Sol →</button><div id="assistantAnswer" class="assistant-answer" aria-live="polite">Укажите GID в вопросе или выберите узел на графе.</div></div></div>
+      </section>
+
+      <section class="exports panel"><div><p class="eyebrow">ДАННЫЕ ДЛЯ ДАЛЬНЕЙШЕЙ РАБОТЫ</p><h2>Выгрузки анализа</h2><p>Три CSV с ролями всех узлов, кластерами и приоритетным списком.</p></div><div class="export-links"><a href="/api/export/nodes_roles.csv" download>Роли узлов <span>↗</span></a><a href="/api/export/clusters.csv" download>Кластеры <span>↗</span></a><a href="/api/export/top_nodes.csv" download>Топ узлов <span>↗</span></a></div></section>
+      <section class="verification-panel panel" aria-labelledby="verificationTitle">
+        <div class="panel-heading"><div><p class="eyebrow">07 / УГЛУБЛЁННАЯ ПРОВЕРКА</p><h2 id="verificationTitle">Какие данные запросить дополнительно</h2><p>Отдельный план для выбранного gid: сведения для более детального выявления роли в цепочке.</p></div><span id="verificationGid" class="count-pill">Выберите gid</span></div>
+        <p id="verificationObserved" class="verification-observed">Выберите узел на карте или в очереди проверки.</p>
+        <div id="verificationItems" class="verification-items" aria-live="polite"></div>
+      </section>
+    </section>
+
+    <section id="initialState" class="initial-state panel" aria-live="polite"><div class="loading-orbit" aria-hidden="true"></div><h2>Загружаем сеть</h2><p>Читаем результаты локального пакетного анализа…</p></section>
+    <section class="method-note"><strong>* Граница наблюдения.</strong> Граф построен по исходящим внутрибанковским переводам от 5 000 ₸ на четыре колена. У seed входящий поток неполон; у узлов 4-го колена отсутствие выхода может быть следствием обрыва выборки. Роли и кластеры — гипотезы для проверки, индексы не являются вероятностью нарушения.</section>
+  </main>
+  <footer class="shell footer"><span>Граф денег · HackAlem AI</span><span>Обезличенная локальная выгрузка · без внешнего обогащения</span></footer>
+  <script type="module" src="/src/app.js"></script>
+</body>
+</html>

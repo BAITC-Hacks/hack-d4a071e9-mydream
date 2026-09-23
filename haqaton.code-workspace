@@ -1,0 +1,15 @@
+{
+  "folders": [
+    { "name": "Money Graph · Track 02", "path": "." }
+  ],
+  "settings": {
+    "git.enabled": true,
+    "workbench.colorCustomizations": {
+      "activityBarBadge.background": "#b9ff66",
+      "activityBarBadge.foreground": "#101509"
+    }
+  },
+  "extensions": {
+    "recommendations": ["openai.chatgpt"]
+  }
+}

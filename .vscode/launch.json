@@ -1,0 +1,26 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Hackathon: сервер",
+      "type": "node",
+      "request": "launch",
+      "program": "${workspaceFolder}/server.mjs",
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal"
+    },
+    {
+      "name": "Hackathon: открыть в Edge",
+      "type": "msedge",
+      "request": "launch",
+      "url": "http://127.0.0.1:4173",
+      "webRoot": "${workspaceFolder}"
+    }
+  ],
+  "compounds": [
+    {
+      "name": "Hackathon: запуск и браузер",
+      "configurations": ["Hackathon: сервер", "Hackathon: открыть в Edge"]
+    }
+  ]
+}

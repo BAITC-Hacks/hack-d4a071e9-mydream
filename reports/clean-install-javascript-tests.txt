@@ -1,0 +1,58 @@
+✔ rapid selections send only the latest payload after 600 ms of quiet (3.9708ms)
+✔ the same selection never restarts the timer or repeats an active or completed request (0.3684ms)
+✔ returning to a cached selection immediately reuses the answer without marking it busy (0.4406ms)
+✔ the cache evicts the least recently used result when its bound is reached (0.5796ms)
+✔ an active request never overlaps another and its stale result never replaces the selection (0.4816ms)
+✔ clear invalidates an old response even when the next graph uses the same key (0.3935ms)
+✔ clear removes a pending selection and does not cache an invalidated response (0.267ms)
+✔ a failed selection waits for explicit retry and returns the original Error (0.5032ms)
+✔ a stale failure does not block the pending current selection or offer its retry (0.4199ms)
+✔ pausing holds the latest pending selection until resumed (0.4711ms)
+✔ retry from an error callback preserves actual busy state and catches synchronous failures (0.289ms)
+✔ Responses API uses requested model, server key and grounded structured output (45.8953ms)
+✔ missing key and invalid input cannot issue a paid request (1.7588ms)
+✔ untrusted API errors never expose upstream body or key (4.4507ms)
+✔ unknown GID citations, malformed and incomplete responses are rejected (5.4684ms)
+✔ network failure and timeout have actionable controlled messages (0.959ms)
+✔ common recipient is computed with exact directed witness paths (20.262ms)
+✔ separate source neighborhoods remain visible when there is no common recipient (0.7561ms)
+✔ unknown named GID never silently uses selected node or unrelated candidates (1.0559ms)
+✔ context bounds preserve witnesses and declare truncation (21.8852ms)
+✔ only known anonymized computed fields leave graph context (1.2511ms)
+✔ supplied dataset scope is bounded and retained without unrelated metadata or invented defaults (0.6586ms)
+✔ cycles and repeated routes include real edge evidence and full-network resilience is labeled (0.9628ms)
+✔ five exact GIDs share a recipient through complete directed witness paths (23.3896ms)
+✔ overview sends all top10 in stable priority order to the external assistant context (22.0928ms)
+✔ node summary preserves exact GID and rejects unknown IDs before any paid call (1.804ms)
+✔ same content reuses response and changing dataset version invalidates summaries (0.7783ms)
+✔ identical concurrent requests share one answer and old inflight results cannot repopulate new cache (0.6934ms)
+✔ errors and missing focus references are not cached (0.6172ms)
+✔ cache has a bounded least recently used capacity (0.7311ms)
+✔ analysis endpoint keeps local origin, JSON and key protections without making an API call (552.3587ms)
+✔ обзор кластеров размещает группы без наложения в узком canvas (3.0976ms)
+✔ кластер показывает ограниченное число узлов на каждом колене и сохраняет выбранный (1.2734ms)
+✔ связи узла ограничены по сумме и остаются на своих сторонах (1.2536ms)
+✔ foreign Host cannot read local graph, node, exports or static files (304.7746ms)
+✔ foreign Origin rebuild is rejected before starting the pipeline (407.1511ms)
+✔ wrong Origin and cross-site fetches cannot read local data (359.7683ms)
+✔ local UI and CLI requests remain available and assistant without a key returns 503 (146.1496ms)
+✔ карточка охватывает все поля расчёта роли для выбранного gid (2.1093ms)
+✔ нулевые и неполные показатели не превращаются в выдуманные значения (0.271ms)
+✔ догрузка данных того же GID сохраняет выбранный раздел карточки (0.2107ms)
+✔ новый GID и повторное открытие после снятия выбора начинаются с обзора (0.1638ms)
+✔ клавиатура обходит разделы циклически, Home и End ведут к краям (0.2268ms)
+✔ карточка GID возвращает полную гипотезу, все связи и исходные операции без округления GID (244.8009ms)
+✔ карточка GID отклоняет некорректный идентификатор и отличает неизвестный GID (435.5484ms)
+✔ локальный сервер выдаёт приложение и статус исходных данных (436.2022ms)
+✔ план проверки показывает недостающие данные для любого выбранного узла (2.2585ms)
+✔ план выделяет границы выборки для исходного клиента и четвёртого колена (0.2703ms)
+ℹ tests 48
+ℹ suites 0
+ℹ pass 48
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1458.8528
+
+

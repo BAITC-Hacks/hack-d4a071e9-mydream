@@ -1,0 +1,20 @@
+{
+  "source_commit": "b9d931783ba59298a2147e1b6a59186bebf542ad",
+  "checked_at": "2026-09-23T12:20:21.995Z",
+  "new_environment": true,
+  "copied_files_verified": 61,
+  "node": "v24.19.0",
+  "health": {
+    "track": "02",
+    "dataReady": true,
+    "outputReady": true,
+    "rebuilding": false
+  },
+  "input_nodes": 2248,
+  "all_static_assets": true,
+  "node_detail": true,
+  "three_csv_match": true,
+  "api_rebuild_seconds": 4.031,
+  "assistant_configured": false,
+  "passed": true
+}
