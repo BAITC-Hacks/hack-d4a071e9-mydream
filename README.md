@@ -96,9 +96,9 @@ gid 100000004015047100: роль — ТОЧКА КОНСОЛИДАЦИИ, уве
 | Интерфейс | Streamlit; pyvis — схема сети на vis.js, библиотека встроена в страницу, CDN не нужен |
 | AI | OpenAI API через пакет `openai` (Chat Completions), модель `gpt-5-mini` — задаётся в `config.py` или переменной `OPENAI_MODEL` |
 | Тесты | pytest, 7 тестов |
-| Офлайн-сборка | [python-build-standalone](https://github.com/astral-sh/python-build-standalone) 3.11.11, скрипты bash / cmd / PowerShell |
+| Офлайн-сборка | [python-build-standalone](https://github.com/astral-sh/python-build-standalone) 3.11.16 (релиз 20260901), скрипты bash / cmd / PowerShell |
 
-GPU, облачный кластер и обучение моделей не нужны. Интернет нужен только ассистенту для запроса к OpenAI.
+GPU, облачный кластер и обучение моделей не нужны. Интернет нужен только ассистенту для запроса к OpenAI и macOS-варианту при первом запуске (скачать Python и библиотеки).
 
 ## Архитектура
 
@@ -135,12 +135,14 @@ app/                 streamlit_app.py — экран просмотра
 tests/               test_outputs.py — проверки must-have, дробления, устойчивости, ассистента
 data/                parquet от организаторов
 output/              результат прогона (CSV в репозитории; features.parquet создаётся при запуске)
-tools/               build_portable.sh, check_win_deps.py — сборка офлайн-архивов
+tools/               сборка офлайн-архивов: build_portable_win.sh + pack_bundles.py (Windows-хост),
+                     build_portable.sh + check_win_deps.py (Linux-хост), check_deps.py
 starter/, docs/      стартовый код организаторов (не используется), скриншоты
 DESIGN.md            проектный документ: требования, архитектура, компромиссы
 README_dataset.md    описание полей датасета
 run.sh, run.ps1      короткие команды для Linux/macOS и Windows
-run_offline.*        запуск через портативный Python
+run_offline.*        запуск через портативный Python (Windows, Linux)
+run_mac.sh           macOS: скачивает портативный Python и библиотеки при первом запуске
 ```
 
 ## Установка и запуск
@@ -172,11 +174,12 @@ python -m pytest -q tests                             # 7 тестов
 
 **Ключ OpenAI для ассистента** ищется сначала в переменной `OPENAI_API_KEY`, затем в файле `openai_key.txt` в корне. Файл лежит в приватном репозитории, чтобы ассистент работал у жюри. Без ключа ассистент отвечает по шаблону.
 
-**Без установки Python (запасной вариант).** В ветке [`offline-bundles`](https://github.com/BAITC-Hacks/hack-d4a071e9-mydream/tree/offline-bundles) лежат архивы с портативным Python 3.11 и всеми библиотеками: Windows x64 ≈150 МБ, Linux x64 ≈170 МБ, части по 25 МБ со скриптами склейки `join_win.bat` / `join_linux.sh`.
+**Без установки Python (запасной вариант).** Архивы с портативным Python 3.11 и всеми библиотеками лежат целиком в [GitHub Release `offline-bundles`](https://github.com/BAITC-Hacks/hack-d4a071e9-mydream/releases/tag/offline-bundles): `moneygraph-win-x64.zip` (Windows x64, ≈155 МБ), `moneygraph-linux-x64.tar.gz` (Linux x64, ≈180 МБ), `moneygraph-macos.tar.gz` (macOS, ≈1 МБ) и `SHA256SUMS`. Те же архивы частями по 25 МБ (лимит файла в git — 100 МБ) — в ветке [`offline-bundles`](https://github.com/BAITC-Hacks/hack-d4a071e9-mydream/tree/offline-bundles) со скриптами склейки `join_win.bat` / `join_linux.sh`.
 
-- **Windows:** распакуйте архив командой `tar -xf moneygraph-win-x64.zip -C C:\mg` (Проводник на ~18 тыс. файлов может молча остановиться), затем выполните `run_offline.bat run | test | explain <gid> | app`.
-- **Linux:** `./run_offline.sh run`.
-- Пересобрать архивы: `bash tools/build_portable.sh`.
+- **Windows:** распакуйте архив командой `tar -xf moneygraph-win-x64.zip -C C:\mg` (Проводник на ~18 тыс. файлов может молча остановиться), затем `cd /d C:\mg\moneygraph` и `run_offline.bat run | test | explain <gid> | app`.
+- **Linux:** `tar -xzf moneygraph-linux-x64.tar.gz && cd moneygraph && ./run_offline.sh run` (также `test | explain <gid> | app`).
+- **macOS (Apple Silicon и Intel), нужен интернет при первом запуске:** `tar -xzf moneygraph-macos.tar.gz && cd moneygraph && ./run_mac.sh run`. Скрипт скачает портативный Python 3.11 в `portable/mac` (≈20 МБ, контрольная сумма проверяется) и библиотеки из PyPI (≈200 МБ); системный Python и Homebrew не нужны и не затрагиваются. Дальше `./run_mac.sh test | explain <gid> | ask "вопрос" | app`.
+- Пересобрать архивы: на Windows — `bash tools/build_portable_win.sh` (Git Bash), на Linux — `bash tools/build_portable.sh`. Результат в `dist/`, там же `BUILD_INFO.txt` с коммитом и версиями пакетов.
 
 Ключа OpenAI в архивах нет. Чтобы ассистент отвечал через модель, скопируйте `openai_key.txt` из репозитория в распакованную папку `moneygraph` (рядом с `run_offline.bat`); без ключа ассистент отвечает по шаблону.
 
@@ -312,7 +315,7 @@ python -m moneygraph ask "кто собирает деньги с этих пя�
 **Интерфейс и поставка**
 - Экран — локальное Streamlit-приложение без авторизации, для одного аналитика.
 - В CSV роли записаны кодами из словаря ТЗ (`consolidator` и т. д.); на экране, в `explain` и в ответах ассистента — по-русски. Соответствие кодов и названий — в таблице [ролей](#роли-правила-и-пороги) и на вкладке «Правила ролей».
-- Офлайн-архивы собираются скриптом из текущего кода; после изменений кода их нужно пересобрать (`bash tools/build_portable.sh`). Windows-архив собирается на Linux: зависимости проверяются скриптом, а запуск на Windows проверяется вручную.
+- Офлайн-архивы собираются скриптом из текущего кода; после изменений кода их нужно пересобрать (`bash tools/build_portable_win.sh` на Windows или `bash tools/build_portable.sh` на Linux). Архив для «чужой» платформы собирается из колёс PyPI без запуска: полнота зависимостей проверяется `tools/check_deps.py`, а запуск на самой платформе — вручную. macOS-вариант не содержит интерпретатора и скачивает его при первом запуске.
 
 ## Масштабирование до ~1 млн узлов
 
