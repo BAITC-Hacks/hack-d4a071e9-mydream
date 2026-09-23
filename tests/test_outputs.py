@@ -43,3 +43,24 @@ def test_m5_top_nodes():
 def test_truncated_not_terminal(nodes):
     if "truncated" in nodes.columns:
         assert not ((nodes.truncated) & (nodes.role == "terminal")).any()
+
+
+def test_bursts_and_resilience():
+    b = pd.read_csv(OUT / "bursts.csv")
+    assert set(b.kind) <= {"pair_day", "fan_in_day"} and len(b) > 0
+    assert (b[b.kind == "pair_day"].n_tx >= 3).all() and (b[b.kind == "fan_in_day"].n_payers >= 4).all()
+    r = pd.read_csv(OUT / "resilience.csv")
+    assert {"priority", "in_kzt", "random"} == set(r.strategy)
+    assert r[r.n_removed == 0].seed_flow_share.eq(1.0).all()
+    for _, g in r.groupby("strategy"):          # удаление узлов не может увеличить поток
+        assert g.sort_values("n_removed").seed_flow_share.is_monotonic_decreasing
+
+
+def test_assistant_offline_fallback(monkeypatch):
+    from moneygraph import assistant
+    monkeypatch.setattr(assistant, "api_key", lambda: None)   # без ключа — только шаблон, сеть не нужна
+    text, source, fx = assistant.answer("кто собирает деньги с 100000005264990100 и 100000004041163100", OUT, Path("data"))
+    assert source == "rules" and fx["gids"] == [100000005264990100, 100000004041163100]
+    assert "100000005382566100" in text and "гипотеза" in text
+    text, source, fx = assistant.answer("без номеров", OUT, Path("data"))
+    assert source == "rules" and not fx["gids"]

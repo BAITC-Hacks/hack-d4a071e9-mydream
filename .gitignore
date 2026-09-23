@@ -7,3 +7,4 @@ starter/out/
 portable/
 dist/
 .cache/
+.env

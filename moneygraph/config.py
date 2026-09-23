@@ -49,3 +49,18 @@ SEED_PENALTY = 0.5
 TOP_N = 30
 
 CYCLE_MAX_LEN = 5
+
+# --- дробление (output/bursts.csv) ---
+BURST_MIN_TX = 3                    # ≥3 перевода одной паре за один день: 93 пары-дня из 4 286
+BURST_MIN_PAYERS = 4                # ≥4 разных плательщика одному получателю за день: 29 случаев
+
+# --- устойчивость сети (output/resilience.csv) ---
+RESILIENCE_STEPS = [0, 5, 10, 20, 30, 50]   # сколько узлов удаляем
+RESILIENCE_RANDOM_RUNS = 20                 # случайная стратегия — среднее по прогонам
+RESILIENCE_SEED = 42
+
+# --- ассистент (LLM только формулирует ответ из готовых фактов, роли не присваивает) ---
+ASSISTANT_MODEL = "gpt-5-mini"      # OpenAI; переопределяется переменной окружения OPENAI_MODEL
+ASSISTANT_MAX_HOPS = 2              # глубина поиска общих получателей/плательщиков
+ASSISTANT_TOP = 5                   # сколько кандидатов показывать
+ASSISTANT_TIMEOUT_S = 60
