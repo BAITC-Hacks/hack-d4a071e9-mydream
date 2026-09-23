@@ -706,7 +706,7 @@ function renderGraphAnalysis(result) {
   if (result.status === 'waiting' || result.status === 'loading') {
     status.textContent = result.status === 'waiting'
       ? 'Готовим анализ выбранного вида. Предыдущий запрос, если он есть, завершится первым.'
-      : 'Sol анализирует граф через OpenAI API…';
+      : 'Помощник анализирует граф через OpenAI API…';
     return;
   }
   if (result.status === 'error') {
@@ -716,7 +716,7 @@ function renderGraphAnalysis(result) {
   const answer = result.data;
   const timestamp = new Date(answer.generated_at);
   const date = Number.isNaN(timestamp.valueOf()) ? '' : ` · ${timestamp.toLocaleString('ru-RU')}`;
-  status.textContent = `${answer.cached ? 'Сохранённый ответ' : 'Ответ получен'} · ${answer.model}${date}`;
+  status.textContent = `${answer.cached ? 'Сохранённый ответ' : 'Ответ получен'} · OpenAI API${date}`;
   target.append(element('p', 'analysis-text', answer.text));
   const references = new Map(answer.references.map((item) => [item.gid, item]));
   const focus = answer.focus_gids || [];
@@ -745,7 +745,7 @@ function renderGraphAnalysis(result) {
 function updateAssistantButton() {
   const button = $('assistantAsk');
   button.disabled = state.assistantBusy || state.graphAnalysisBusy || state.assistantConfigured !== true;
-  button.textContent = state.assistantBusy ? 'GPT-6 Sol анализирует граф…' : state.graphAnalysisBusy ? 'Ожидаем сводку под графом…' : 'Спросить GPT-6 Sol →';
+  button.textContent = state.assistantBusy ? 'Помощник анализирует граф…' : state.graphAnalysisBusy ? 'Ожидаем сводку под графом…' : 'Спросить помощника →';
 }
 
 async function loadAssistantStatus() {
@@ -754,7 +754,7 @@ async function loadAssistantStatus() {
     const config = await request('/api/assistant/status');
     state.assistantConfigured = config.configured === true;
     status.textContent = config.configured
-      ? `Внешний OpenAI API · модель ${config.model}. Ответы — гипотезы для проверки.`
+      ? 'Внешний OpenAI API. Ответы — гипотезы для проверки.'
       : 'Помощник не настроен. Задайте OPENAI_API_KEY в окружении сервера, перезапустите node server.mjs и обновите страницу.';
     status.classList.toggle('error', !config.configured);
   } catch (error) {
@@ -796,7 +796,7 @@ async function askAssistant() {
       }
       target.append(links);
     }
-    target.append(element('p', 'optional-limit', `Ответ ${answer.model || 'GPT-6 Sol'} по предоставленному фрагменту графа. Проверьте выводы по связям узлов.`));
+    target.append(element('p', 'optional-limit', 'Ответ помощника по предоставленному фрагменту графа. Проверьте выводы по связям узлов.'));
   } catch (error) {
     target.replaceChildren(element('p', 'assistant-error', `Не удалось получить ответ OpenAI API: ${error.message}`));
   } finally {

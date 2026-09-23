@@ -52,7 +52,7 @@ function responseFormat(allowedGids) {
 
 function apiError(status) {
   if (status === 401) return new AssistantError(503, 'OpenAI отклонил ключ. Проверьте OPENAI_API_KEY в окружении сервера и перезапустите его.');
-  if (status === 403 || status === 404) return new AssistantError(503, 'OpenAI не предоставил доступ к gpt-6-sol. Проверьте доступ проекта API к этой модели.');
+  if (status === 403 || status === 404) return new AssistantError(503, 'OpenAI не предоставил доступ к настроенной модели. Проверьте доступ проекта API к этой модели.');
   if (status === 429) return new AssistantError(429, 'Достигнут лимит запросов или квота OpenAI API. Проверьте квоту проекта и повторите позже.');
   return new AssistantError(502, 'OpenAI API не выполнил запрос. Повторите позже; при повторной ошибке проверьте настройки API.');
 }

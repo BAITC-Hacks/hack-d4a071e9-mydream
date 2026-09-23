@@ -67,13 +67,13 @@
       <section class="panel graph-analysis" aria-labelledby="graphAnalysisTitle">
         <div class="panel-heading analysis-heading">
           <div><p class="eyebrow">АНАЛИТИКА ПО КАРТЕ</p><h2 id="graphAnalysisTitle">Почему эти узлы в приоритете</h2><p id="graphAnalysisScope">Обзор топ-10 по всей наблюдаемой сети</p></div>
-          <span class="analysis-provider">OpenAI API · GPT-6 Sol</span>
+          <span class="analysis-provider">OpenAI API</span>
         </div>
         <div class="analysis-content">
           <p class="analysis-disclosure">Сводка формируется автоматически через внешний API по обезличенному фрагменту графа и рассчитанным показателям.</p>
           <p id="graphAnalysisStatus" class="analysis-status" role="status">Подготовка контекста…</p>
           <div id="graphAnalysisBody" class="analysis-body" tabindex="0" role="region" aria-label="Аналитика по текущему виду графа" aria-busy="false"></div>
-          <button id="graphAnalysisRetry" class="subtle-button analysis-retry" type="button" hidden>Повторить запрос к Sol →</button>
+          <button id="graphAnalysisRetry" class="subtle-button analysis-retry" type="button" hidden>Повторить запрос →</button>
           <p class="analysis-limit">Выводы — гипотезы для проверки. Модель поясняет расчёт и не меняет роли или очередь проверки.</p>
         </div>
       </section>
@@ -85,7 +85,7 @@
 
       <section class="optional-grid" aria-label="Дополнительный анализ">
         <div class="panel optional-panel"><div class="panel-heading"><div><p class="eyebrow">05 / СТРУКТУРА СЕТИ</p><h2>Маршруты и устойчивость</h2><p>Повторяющиеся пути, возвратные контуры и сценарий удаления узлов.</p></div></div><div id="optionalOverview" class="optional-content"></div></div>
-        <div class="panel assistant-panel"><div class="panel-heading"><div><p class="eyebrow">06 / ВОПРОС К ГРАФУ</p><h2>Помощник аналитика · GPT-6 Sol</h2><p>Вопрос и связанный фрагмент обезличенного графа отправляются во внешний OpenAI API. Ответ содержит ссылки на GID из выгрузки.</p></div></div><div class="assistant-content"><p id="assistantStatus" class="assistant-status" role="status">Проверяем подключение OpenAI API…</p><label for="assistantQuestion">Спросите о точке сбора, маршруте, цикле или устойчивости</label><textarea id="assistantQuestion" rows="3" maxlength="2000" placeholder="Кто собирает деньги с GID1 и GID2?"></textarea><button class="button button-primary" id="assistantAsk" type="button">Спросить GPT-6 Sol →</button><div id="assistantAnswer" class="assistant-answer" aria-live="polite">Укажите GID в вопросе или выберите узел на графе.</div></div></div>
+        <div class="panel assistant-panel"><div class="panel-heading"><div><p class="eyebrow">06 / ВОПРОС К ГРАФУ</p><h2>Помощник аналитика</h2><p>Вопрос и связанный фрагмент обезличенного графа отправляются во внешний OpenAI API. Ответ содержит ссылки на GID из выгрузки.</p></div></div><div class="assistant-content"><p id="assistantStatus" class="assistant-status" role="status">Проверяем подключение OpenAI API…</p><label for="assistantQuestion">Спросите о точке сбора, маршруте, цикле или устойчивости</label><textarea id="assistantQuestion" rows="3" maxlength="2000" placeholder="Кто собирает деньги с GID1 и GID2?"></textarea><button class="button button-primary" id="assistantAsk" type="button">Спросить помощника →</button><div id="assistantAnswer" class="assistant-answer" aria-live="polite">Укажите GID в вопросе или выберите узел на графе.</div></div></div>
       </section>
 
       <section class="exports panel"><div><p class="eyebrow">ДАННЫЕ ДЛЯ ДАЛЬНЕЙШЕЙ РАБОТЫ</p><h2>Выгрузки анализа</h2><p>Три CSV с ролями всех узлов, кластерами и приоритетным списком.</p></div><div class="export-links"><a href="/api/export/nodes_roles.csv" download>Роли узлов <span>↗</span></a><a href="/api/export/clusters.csv" download>Кластеры <span>↗</span></a><a href="/api/export/top_nodes.csv" download>Топ узлов <span>↗</span></a></div></section>
