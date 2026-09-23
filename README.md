@@ -74,9 +74,8 @@ track02/.venv/Scripts/python.exe tests/node_detail_pipeline_test.py
 
 - `track02/pipeline.py` — расчёт ролей, кластеров, приоритетов и экспортов.
 - `track02/optional_analysis.py` — временные сигналы, маршруты, циклы, сравнение по колену и устойчивость сети.
-- `src/analyst-assistant.mjs` — локальные ответы по графу со ссылками на GID.
 - `server.mjs` — локальный HTTP сервер и запуск конвейера.
-- `index.html`, `styles.css`, `src/app.js` — интерфейс аналитика.
+- `index.html`, `styles.css`, `src/app.js` — интерфейс аналитика и локальные ответы по графу со ссылками на GID.
 - `track02/materials/` — исходные архивы и README набора; вспомогательные PDF остаются локально.
 - `tests/` — проверки.
 - `PITCH.md` — краткий сценарий демонстрации.

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { answerQuestion } from '../src/analyst-assistant.mjs';
+import { answerQuestion } from '../src/app.js';
 
 const data = {
   nodes: [
