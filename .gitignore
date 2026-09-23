@@ -12,6 +12,7 @@ track02/.venv/
 track02/.deps/
 track02/out/
 track02/data/
+track02/__MACOSX/
 track02/materials/*.pdf
 track02/materials/*.txt
 track02/fixtures/check/
