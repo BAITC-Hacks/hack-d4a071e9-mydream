@@ -1,0 +1,21 @@
+{
+  "checked_at": "2026-09-23T12:10:16.058Z",
+  "automated_checks_passed": true,
+  "scope": "Local contract and behavior tests; no paid model calls. Manual review: docs/SPEC_COMPLIANCE.md.",
+  "results": [
+    {
+      "suite": "javascript",
+      "passed": true,
+      "exit_code": 0,
+      "elapsed_seconds": 1.189,
+      "log": "reports/javascript-tests.txt"
+    },
+    {
+      "suite": "python",
+      "passed": true,
+      "exit_code": 0,
+      "elapsed_seconds": 9.474,
+      "log": "reports/python-tests.txt"
+    }
+  ]
+}

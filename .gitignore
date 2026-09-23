@@ -15,3 +15,5 @@ track02/data/
 track02/materials/*.pdf
 track02/materials/*.txt
 track02/fixtures/check/
+reports/tmp/
+docs/requirements/organizer-spec.docx

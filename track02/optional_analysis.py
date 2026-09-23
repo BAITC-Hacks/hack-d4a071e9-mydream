@@ -30,7 +30,7 @@ def _temporal_and_splitting(tx: pd.DataFrame) -> dict[int, dict]:
 
     split_by_source = Counter()
     for (source, _, _), amounts in pair_day.items():
-        if len(amounts) >= 3 and all(5000 <= amount <= 25000 for amount in amounts):
+        if sum(5000 <= amount <= 25000 for amount in amounts) >= 3:
             split_by_source[source] += 1
 
     result = {}

@@ -24,11 +24,19 @@ let rebuildPromise = null;
 let assistantBusy = false;
 const graphAnalysis = createGraphAnalysisService({ ask: runAssistant });
 
-async function readAssistantRequest(request, validate = validateAssistantInput) {
-  const allowedOrigins = new Set([`http://127.0.0.1:${request.socket.localPort}`, `http://localhost:${request.socket.localPort}`]);
-  if (!allowedOrigins.has(`http://${request.headers.host}`) || (request.headers.origin && !allowedOrigins.has(request.headers.origin))) {
-    throw new AssistantError(403, 'Вопросы принимаются только из локального интерфейса.');
+function assertLocalRequest(request) {
+  const host = request.headers.host;
+  const port = request.socket.localPort;
+  const localHost = host === `127.0.0.1:${port}` || host === `localhost:${port}`;
+  const origin = request.headers.origin;
+  if (!localHost || (origin !== undefined && origin !== `http://${host}`)
+    || request.headers['sec-fetch-site'] === 'cross-site') {
+    request.resume();
+    throw new AssistantError(403, 'Доступ разрешён только из локального интерфейса.');
   }
+}
+
+async function readAssistantRequest(request, validate = validateAssistantInput) {
   if (request.headers['content-type']?.split(';')[0].trim() !== 'application/json') throw new AssistantError(415, 'Требуется Content-Type: application/json.');
   if (Number(request.headers['content-length']) > 20000) { request.resume(); throw new AssistantError(413, 'Слишком большой запрос.'); }
   const chunks = [];
@@ -92,6 +100,7 @@ function runPipeline() {
 
 createServer(async (request, response) => {
   try {
+    assertLocalRequest(request);
     const pathname = new URL(request.url, `http://${request.headers.host}`).pathname;
     if (request.method === 'GET' && pathname === '/api/assistant/status') return sendJson(response, 200, assistantStatus());
     if (request.method === 'POST' && pathname === '/api/assistant') {

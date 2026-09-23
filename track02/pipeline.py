@@ -473,9 +473,9 @@ def run_pipeline(data_dir: Path, out_dir: Path) -> dict:
     roles, clusters, top, network = analyze(nodes, edges, tx)
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
-    roles[ROLE_CSV_COLUMNS].to_csv(out_dir / "nodes_roles.csv", index=False)
-    clusters.to_csv(out_dir / "clusters.csv", index=False)
-    top.to_csv(out_dir / "top_nodes.csv", index=False)
+    roles[ROLE_CSV_COLUMNS].to_csv(out_dir / "nodes_roles.csv", index=False, lineterminator="\n")
+    clusters.to_csv(out_dir / "clusters.csv", index=False, lineterminator="\n")
+    top.to_csv(out_dir / "top_nodes.csv", index=False, lineterminator="\n")
     network["meta"]["runtime_sec"] = round(perf_counter() - started, 3)
     (out_dir / "network.json").write_text(
         json.dumps(network, ensure_ascii=False, allow_nan=False, separators=(",", ":")),

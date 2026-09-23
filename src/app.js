@@ -328,8 +328,8 @@ function renderNodeFacts(node) {
 }
 
 const BOUNDARY_VERDICT = {
-  likely_terminal: 'скорее всего деньги здесь остались',
-  likely_continues: 'скорее всего цепочка продолжается за границей выгрузки',
+  likely_terminal: 'по эталону есть гипотеза конечного получателя; собственный выход узла не наблюдался',
+  likely_continues: 'по эталону есть гипотеза продолжения цепочки; собственный выход узла не наблюдался',
   uncertain: 'продолжение цепочки неясно',
 };
 function boundaryText(node) {
@@ -337,7 +337,7 @@ function boundaryText(node) {
   if (!node.boundary_label) return base;
   const verdict = BOUNDARY_VERDICT[node.boundary_label] || BOUNDARY_VERDICT.uncertain;
   if (node.continuation_rate === null || node.continuation_rate === undefined) return `${base} Сравнимых узлов колен 1–3 мало, ${verdict}.`;
-  return `${base} Среди ${fmt(node.continuation_support)} узлов колен 1–3 с таким же числом входящих операций дальше отправляли ${percent(node.continuation_rate)}, поэтому ${verdict}.`;
+  return `${base} Среди ${fmt(node.continuation_support)} узлов колен 1–3 в том же диапазоне числа входящих операций дальше отправляли ${percent(node.continuation_rate)}; ${verdict}.`;
 }
 
 function renderNodeInsights(node) {
