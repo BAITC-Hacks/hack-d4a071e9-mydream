@@ -40,6 +40,7 @@ ROLE_COLUMNS = [
     "pagerank", "betweenness", "pass_through", "depth", "is_seed",
     "truncated_by_depth", "active_days", "data_quality",
 ]
+ROLE_CSV_COLUMNS = ["gid", "role", "role_score", "cluster_id", "priority_score", "evidence"]
 CLUSTER_COLUMNS = ["cluster_id", "n_nodes", "n_seed", "sum_kzt_internal", "top_gids", "hypothesis"]
 TOP_COLUMNS = ["rank", "gid", "role", "priority_score", "why"]
 
@@ -392,7 +393,7 @@ def run_pipeline(data_dir: Path, out_dir: Path) -> dict:
     roles, clusters, top, network = analyze(nodes, edges, tx)
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
-    roles.to_csv(out_dir / "nodes_roles.csv", index=False)
+    roles[ROLE_CSV_COLUMNS].to_csv(out_dir / "nodes_roles.csv", index=False)
     clusters.to_csv(out_dir / "clusters.csv", index=False)
     top.to_csv(out_dir / "top_nodes.csv", index=False)
     network["meta"]["runtime_sec"] = round(perf_counter() - started, 3)

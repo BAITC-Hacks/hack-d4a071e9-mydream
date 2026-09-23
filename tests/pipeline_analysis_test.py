@@ -109,8 +109,18 @@ class PipelineAnalysisTests(unittest.TestCase):
             clusters = pd.read_csv(out_dir / "clusters.csv")
             top = pd.read_csv(out_dir / "top_nodes.csv")
             network = json.loads((out_dir / "network.json").read_text(encoding="utf-8"))
+            self.assertEqual(list(roles.columns), [
+                "gid", "role", "role_score", "cluster_id", "priority_score", "evidence",
+            ])
+            self.assertEqual(list(clusters.columns), [
+                "cluster_id", "n_nodes", "n_seed", "sum_kzt_internal", "top_gids", "hypothesis",
+            ])
+            self.assertEqual(list(top.columns), [
+                "rank", "gid", "role", "priority_score", "why",
+            ])
             self.assertEqual(len(roles), len(nodes))
             self.assertFalse(roles[["role", "role_score", "cluster_id", "priority_score", "evidence"]].isna().any().any())
+            self.assertTrue(roles.evidence.str.len().le(200).all())
             self.assertGreater(len(clusters), 0)
             self.assertEqual(len(top), len(nodes))
             self.assertEqual(top["rank"].tolist(), list(range(1, len(nodes) + 1)))

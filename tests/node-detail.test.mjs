@@ -1,11 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import { nodeFacts } from '../src/app.js';
 
 test('карточка охватывает все поля расчёта роли для выбранного gid', () => {
-  const columns = readFileSync(new URL('../deliverables/nodes_roles.csv', import.meta.url), 'utf8')
-    .split(/\r?\n/, 1)[0].split(',');
+  const columns = [
+    'gid', 'role', 'role_score', 'cluster_id', 'priority_score', 'evidence',
+    'in_deg', 'out_deg', 'in_kzt', 'out_kzt', 'in_tx', 'out_tx',
+    'pagerank', 'betweenness', 'pass_through', 'depth', 'is_seed',
+    'truncated_by_depth', 'active_days', 'data_quality',
+  ];
   const alreadyVisible = new Set(['gid', 'role', 'role_score', 'cluster_id', 'priority_score', 'evidence']);
   const facts = nodeFacts(Object.fromEntries(columns.map((column) => [column, column === 'gid' ? '100000003115284100' : 0])));
   const covered = new Set([...alreadyVisible, ...facts.map((fact) => fact.key)]);
