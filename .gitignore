@@ -1,0 +1,17 @@
+node_modules/
+.env
+.env.*
+!.env.example
+*.log
+.DS_Store
+Thumbs.db
+.vscode/*.log
+__pycache__/
+*.pyc
+track02/.venv/
+track02/.deps/
+track02/out/
+track02/data/
+track02/materials/*.pdf
+track02/materials/*.txt
+track02/starter/
