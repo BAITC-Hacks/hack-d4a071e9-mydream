@@ -37,6 +37,7 @@ streamlit run app/streamlit_app.py           # экран просмотра: п
 
 Команды те же для обоих: `run`, `explain <gid>`, `check`, `test`, `app` (Streamlit, открыть http://localhost:8501).
 
+- Windows: распаковывать командой `tar -xf moneygraph-win-x64.zip -C C:\mg` (tar встроен в Windows 10/11): это быстрее «Извлечь всё» в Проводнике, и tar сообщает об ошибках. Проводник на ~18 тыс. файлов может молча остановиться, тогда Python падает с `No module named 'encodings'`.
 - Windows: распаковывать в короткий путь. Самый длинный путь внутри архива — 158 символов, а лимит Windows — 260; глубокая папка в OneDrive может его превысить.
 - Антивирус или SmartScreen может спросить разрешение для `python.exe` — это обычный CPython из python-build-standalone, не наш бинарь.
 - Архивы в git не хранятся (`portable/`, `dist/` в `.gitignore`). Пересобрать на Linux с интернетом: `bash tools/build_portable.sh` (≈3 мин). Скрипт сам прогоняет пайплайн и тесты на Linux-сборке и проверяет полноту зависимостей Windows-сборки (`tools/check_win_deps.py`).

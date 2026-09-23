@@ -8,6 +8,7 @@ set PYTHONNOUSERSITE=1
 set PYTHONPATH=
 set PYTHONHOME=
 if not exist "%PY%" (echo Missing %PY% - unzip moneygraph-win-x64.zip completely & exit /b 1)
+if not exist "portable\win\Lib\encodings\__init__.py" (echo Archive is not fully extracted. Re-extract: tar -xf moneygraph-win-x64.zip -C C:\mg & exit /b 1)
 set "CMD=%~1"
 if "%CMD%"=="" set "CMD=run"
 if /i "%CMD%"=="run"     "%PY%" -m moneygraph run --data data --out output & goto :eof
